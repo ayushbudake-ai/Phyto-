@@ -1,3 +1,4 @@
+
 # 🌱 Phyto — Botanical E-Commerce Platform
 
 Phyto connects local nurseries and verified growers directly to urban and semi-urban homes through a regional e-commerce platform with a grounded AI plant recommender, zoned logistics, and multi-channel client applications.
@@ -100,3 +101,12 @@ flutter run
 | `TREFLE_API_TOKEN` | Backend | Optional botanical data API token |
 | `VITE_API_URL` | Web | FastAPI backend endpoint (e.g. `http://localhost:8000`) |
 | `API_BASE_URL` | Mobile | FastAPI backend endpoint (e.g. `http://localhost:8000`) |
+=======
+# Phyto-
+Phyto is a regional, multilingual plant-commerce platform connecting local nurseries and verified growers with urban and semi-urban homes. It offers plants, flowers, seeds and gardening kits with customised pots, hyperlocal delivery and gardener servicesv.It enables shopping while streamlining sourcing, quality, packaging and delivery zone by zone.
+Phyto connects local nurseries and verified growers directly with urban and semi-urban homes through a regional, multilingual e-commerce platform.
+A smart supply-chain system manages sourcing, quality checks, inventory, customised potting, moisture-lock packaging, and last-mile delivery, organised zone-by-zone for hyperlocal efficiency. We source plants and flowers directly from local nurseries and verified growers, reducing middlemen and improving freshness.
+Powered by Bhashini, Phyto supports regional languages across product listings, checkout, and customer support, helping local growers and customers overcome language barriers.
+Customers can shop indoor/outdoor plants, fresh flowers, seeds, and DIY gardening kits, customise pots and accessories, and book professional gardeners for planting and maintenance.
+Revenue comes from sales margins, customisation, delivery and gardener service fees, nursery partnerships, and featured listings, creating a scalable plant ecosystem built zone-by-zone and language-by-language.
+
