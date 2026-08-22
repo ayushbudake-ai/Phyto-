@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --phyto-forest: 45 106 79;
+    --phyto-leaf: 82 183 136;
+    --phyto-moss: 116 198 157;
+    --phyto-cream: 241 248 233;
+    --phyto-sand: 233 224 200;
+    --phyto-soil: 83 61 45;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-phyto-cream font-sans text-stone-800 antialiased;
+  }
+
+  .font-display {
+    font-family: theme('fontFamily.display');
+  }
+}
