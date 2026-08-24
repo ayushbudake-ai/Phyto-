@@ -23,6 +23,7 @@ export function CartPage() {
               name: p.name,
               description: p.description || '',
               price: p.price,
+              stock: 20,
               type: 'plants',
               smell: 'mild',
               sunlight: 'partial',
@@ -41,8 +42,8 @@ export function CartPage() {
     loadAddons()
   }, [])
 
-  const shipping = subtotal > 0 ? 5.99 : 0
-  const tax = Math.round(subtotal * 0.07 * 100) / 100
+  const shipping = subtotal > 499 || subtotal === 0 ? 0 : 49
+  const tax = Math.round(subtotal * 0.05)
   const total = subtotal + shipping + tax
 
   return (

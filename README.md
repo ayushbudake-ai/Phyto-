@@ -114,4 +114,3 @@ A smart supply-chain system manages sourcing, quality checks, inventory, customi
 Powered by Bhashini, Phyto supports regional languages across product listings, checkout, and customer support, helping local growers and customers overcome language barriers.
 Customers can shop indoor/outdoor plants, fresh flowers, seeds, and DIY gardening kits, customise pots and accessories, and book professional gardeners for planting and maintenance.
 Revenue comes from sales margins, customisation, delivery and gardener service fees, nursery partnerships, and featured listings, creating a scalable plant ecosystem built zone-by-zone and language-by-language.
-

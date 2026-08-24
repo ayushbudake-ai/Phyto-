@@ -142,6 +142,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               sunlight: (it.product!.sunlight as any) || 'partial',
               environment: (it.product!.environment as any) || 'indoor',
               smell: 'mild',
+              stock: 20,
               popularity: it.product!.popularity_score || 0,
               imageUrl: it.product!.image_url,
               tags: (it.product!.tags || []).map((t) => t.tag as any),

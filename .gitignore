@@ -1,19 +1,11 @@
+# Environment / secrets
 .env
+*.env
 **/.env
-**/venv/
-**/__pycache__/
-**/*.pyc
 
-# Local uploads
-phyto_backend/uploads/
-
-# Firebase/service accounts
+# Firebase credentials
 firebase-service-account.json
-**/*service-account*.json
 
-# Flutter build artifacts
-phyto_flutter/build/
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-
+# Python
+__pycache__/
+*.pyc
