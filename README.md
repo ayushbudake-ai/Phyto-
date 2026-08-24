@@ -3,6 +3,8 @@
 
 Phyto connects local nurseries and verified growers directly to urban and semi-urban homes through a regional e-commerce platform with a grounded AI plant recommender, zoned logistics, and multi-channel client applications.
 
+OUR LINK:[httpsphyto-seven.vercel.app](https://phyto-seven.vercel.app/)
+
 OUR SCANNER:
 
 <img width="492" height="483" alt="image" src="https://github.com/user-attachments/assets/57380caa-0795-49ad-b8a6-b0ec487837fc" />
