@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+
+  "allowScripts": {
+    "@firebase/util": true,
+    "protobufjs": true
+  },
+
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
