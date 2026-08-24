@@ -7,6 +7,7 @@ class ProductModel {
   final int stock;
   final String? type;
   final String? category;
+  final String? mainCategory;
   final String? sunlight;
   final String? lightRequirement;
   final String? waterRequirement;
@@ -21,6 +22,13 @@ class ProductModel {
   final double popularityScore;
   final List<String> tags;
   final Map<String, dynamic>? careGuide;
+  final String? nurseryCity;
+  final String? nurseryName;
+  final int greenPointsAwarded;
+  final String? packSize;
+  final String? material;
+  final String? dimensions;
+  final String? usage;
 
   ProductModel({
     required this.id,
@@ -31,6 +39,7 @@ class ProductModel {
     required this.stock,
     this.type,
     this.category,
+    this.mainCategory,
     this.sunlight,
     this.lightRequirement,
     this.waterRequirement,
@@ -45,6 +54,13 @@ class ProductModel {
     this.popularityScore = 0.0,
     this.tags = const [],
     this.careGuide,
+    this.nurseryCity,
+    this.nurseryName,
+    this.greenPointsAwarded = 100,
+    this.packSize,
+    this.material,
+    this.dimensions,
+    this.usage,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -60,65 +76,78 @@ class ProductModel {
 
     return ProductModel(
       id: parsedId,
-      name: json['name'] as String? ?? '',
-      scientificName: json['scientificName'] as String? ?? json['scientific_name'] as String?,
+      name: json['name'] as String? ?? 'Plant',
+      scientificName: json['scientificName'] as String?,
       description: json['description'] as String?,
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      stock: (json['stock'] as int?) ?? (json['stock_quantity'] as int?) ?? 10,
+      stock: (json['stock'] as num?)?.toInt() ?? 0,
       type: json['type'] as String?,
       category: json['category'] as String?,
+      mainCategory: json['mainCategory'] as String?,
       sunlight: json['sunlight'] as String?,
-      lightRequirement: json['lightRequirement'] as String? ?? json['light_requirement'] as String?,
-      waterRequirement: json['waterRequirement'] as String? ?? json['water_requirement'] as String?,
-      maintenance: json['maintenance'] as String? ?? json['difficulty'] as String?,
+      lightRequirement: json['lightRequirement'] as String?,
+      waterRequirement: json['waterRequirement'] as String?,
+      maintenance: json['maintenance'] as String?,
       environment: json['environment'] as String?,
       suitableSpace: (json['suitableSpace'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          (json['suitable_space'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
           const [],
-      isPetFriendly: json['isPetFriendly'] as bool? ?? (json['petSafety'] == 'Pet-Friendly'),
+      isPetFriendly: json['isPetFriendly'] as bool? ?? false,
       beginnerFriendly: json['beginnerFriendly'] as bool? ?? false,
       benefits: json['benefits'] as String?,
       rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
-      imageUrl: json['imageUrl'] as String? ?? json['image_url'] as String?,
-      popularityScore: (json['popularity'] as num?)?.toDouble() ??
-          (json['popularity_score'] as num?)?.toDouble() ??
-          0.0,
+      imageUrl: json['imageUrl'] as String?,
+      popularityScore:
+          (json['popularity'] as num?)?.toDouble() ?? 0.0,
       tags: (json['tags'] as List<dynamic>?)
-              ?.map((t) => t is Map ? (t['tag'] as String? ?? '') : t.toString())
-              .where((t) => t.isNotEmpty)
+              ?.map((e) => e.toString())
               .toList() ??
           const [],
       careGuide: json['careGuide'] as Map<String, dynamic>? ??
-          json['care_guide'] as Map<String, dynamic>?,
+          (json['care'] as Map<String, dynamic>?),
+      nurseryCity: json['nurseryCity'] as String?,
+      nurseryName: json['nurseryName'] as String?,
+      greenPointsAwarded: (json['greenPointsAwarded'] as num?)?.toInt() ?? 100,
+      packSize: json['packSize'] as String?,
+      material: json['material'] as String?,
+      dimensions: json['dimensions'] as String?,
+      usage: json['usage'] as String?,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'scientific_name': scientificName,
-        'description': description,
-        'price': price,
-        'stock': stock,
-        'type': type,
-        'category': category,
-        'sunlight': sunlight,
-        'light_requirement': lightRequirement,
-        'water_requirement': waterRequirement,
-        'maintenance': maintenance,
-        'environment': environment,
-        'suitable_space': suitableSpace,
-        'is_pet_friendly': isPetFriendly,
-        'beginner_friendly': beginnerFriendly,
-        'benefits': benefits,
-        'rating': rating,
-        'image_url': imageUrl,
-        'popularity_score': popularityScore,
-        'tags': tags,
-        'care_guide': careGuide,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'scientificName': scientificName,
+      'description': description,
+      'price': price,
+      'stock': stock,
+      'type': type,
+      'category': category,
+      'mainCategory': mainCategory,
+      'sunlight': sunlight,
+      'lightRequirement': lightRequirement,
+      'waterRequirement': waterRequirement,
+      'maintenance': maintenance,
+      'environment': environment,
+      'suitableSpace': suitableSpace,
+      'isPetFriendly': isPetFriendly,
+      'beginnerFriendly': beginnerFriendly,
+      'benefits': benefits,
+      'rating': rating,
+      'imageUrl': imageUrl,
+      'popularity': popularityScore,
+      'tags': tags,
+      'careGuide': careGuide,
+      'nurseryCity': nurseryCity,
+      'nurseryName': nurseryName,
+      'greenPointsAwarded': greenPointsAwarded,
+      'packSize': packSize,
+      'material': material,
+      'dimensions': dimensions,
+      'usage': usage,
+    };
+  }
 }

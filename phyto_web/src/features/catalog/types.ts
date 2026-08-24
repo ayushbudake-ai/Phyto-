@@ -1,17 +1,22 @@
 export type Smell = 'non-fragrant' | 'mild' | 'strong' | 'fragrant' | string
 export type Sunlight = 'full-sun' | 'partial' | 'shade' | string
 export type Environment = 'indoor' | 'outdoor' | 'both' | string
-export type ProductType = 'plants' | 'flowers' | 'tools' | 'seeds' | 'kits' | 'fertilizers' | string
+export type ProductType = 'plants' | 'flowers' | 'tools' | 'seeds' | 'kits' | 'fertilizers' | 'pots' | string
+
+export type MainCategory = 'Plants' | 'Seeds' | 'Flowers' | 'Fertilizers' | 'Pots'
 
 export type Category =
+  | 'Plants'
+  | 'Seeds'
+  | 'Flowers'
+  | 'Fertilizers'
+  | 'Pots'
   | 'Indoor Plants'
   | 'Air-Purifying Plants'
   | 'Flowering Plants'
   | 'Succulents & Cacti'
   | 'Herbs & Medicinal'
   | 'Customized Kits'
-  | 'Seeds'
-  | 'Fertilizers'
   | 'Tools'
   | string
 
@@ -23,6 +28,7 @@ export type SuitableSpace =
   | 'Desk'
   | 'Terrace'
   | 'Bathroom'
+  | 'Garden'
   | string
 
 export type PlantPurpose =
@@ -35,11 +41,15 @@ export type PlantPurpose =
   | 'Flowering'
   | 'Spirituality'
   | 'Stress relief'
+  | 'Indoor greenery'
+  | 'Balcony gardening'
+  | 'Kitchen/herbs'
+  | 'Beginner gardening'
   | string
 
 export type LightRequirement = 'Low' | 'Medium' | 'Bright' | string
 export type WaterRequirement = 'Low' | 'Medium' | 'High' | string
-export type MaintenanceLevel = 'Easy' | 'Moderate' | 'Difficult' | string
+export type MaintenanceLevel = 'Low' | 'Medium' | 'High' | 'Easy' | 'Moderate' | 'Difficult' | string
 
 export type PlantCareGuide = {
   watering: string
@@ -64,6 +74,10 @@ export type ProductTags =
   | 'beginner-friendly'
   | 'flowering'
   | 'gifting'
+  | 'seeds'
+  | 'flowers'
+  | 'fertilizer'
+  | 'pots'
   | string
 
 export type Product = {
@@ -77,6 +91,7 @@ export type Product = {
   popularity: number
   type: ProductType
   category?: Category
+  mainCategory?: MainCategory
   smell?: Smell
   sunlight: Sunlight
   environment: Environment
@@ -107,6 +122,23 @@ export type Product = {
   }
   imageUrl?: string
   tags: ProductTags[]
+  // Location & Nursery fulfillment association
+  nurseryId?: string
+  nurseryName?: string
+  nurseryCity?: string
+  nurseryState?: string
+  distanceKm?: number
+  // Green Index Points Awarded upon purchase
+  greenPointsAwarded?: number
+  // Category specific attributes
+  packSize?: string
+  growingSeason?: string
+  germinationDays?: string
+  material?: string
+  dimensions?: string
+  color?: string
+  usage?: string
+  applicationFrequency?: string
 }
 
 export type CartItem = {

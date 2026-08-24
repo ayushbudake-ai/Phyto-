@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ProductCard } from '../../ui/product-card'
 import type {
   Environment,
@@ -24,13 +24,13 @@ import { useAuth } from '../../features/auth/auth-context'
 
 type Sort = 'popular' | 'price-asc' | 'price-desc' | 'name-asc'
 
-const SPACES: { id: SuitableSpace; label: string; icon: string }[] = [
-  { id: 'Living room', label: 'Living room', icon: '🛋️' },
-  { id: 'Bedroom', label: 'Bedroom', icon: '🛏️' },
-  { id: 'Balcony', label: 'Balcony', icon: '🪴' },
-  { id: 'Office', label: 'Office', icon: '🏢' },
-  { id: 'Desk', label: 'Desk', icon: '💻' },
-  { id: 'Terrace', label: 'Terrace', icon: '☀️' },
+const SPACES: { id: SuitableSpace; label: string }[] = [
+  { id: 'Living room', label: 'Living Room' },
+  { id: 'Bedroom', label: 'Bedroom' },
+  { id: 'Balcony', label: 'Balcony' },
+  { id: 'Office', label: 'Office' },
+  { id: 'Desk', label: 'Desk' },
+  { id: 'Terrace', label: 'Terrace' },
 ]
 
 const LIGHT_OPTIONS: { id: LightRequirement; label: string; desc: string }[] = [
@@ -61,16 +61,17 @@ const PURPOSES: { id: PlantPurpose; label: string }[] = [
 ]
 
 const CATEGORIES: { id: string; label: string }[] = [
-  { id: 'all', label: 'All Botanical Items' },
-  { id: 'Indoor Plants', label: 'Indoor Plants' },
+  { id: 'all', label: 'All Catalog' },
+  { id: 'Plants', label: 'Living Plants' },
+  { id: 'Seeds', label: 'Seeds' },
+  { id: 'Flowers', label: 'Flowers' },
+  { id: 'Fertilizers', label: 'Fertilizers & Soil' },
+  { id: 'Pots', label: 'Pots & Planters' },
+  { id: 'Customized Kits', label: 'Customized Kits' },
+  { id: 'Indoor Plants', label: 'Indoor Greenery' },
   { id: 'Air-Purifying Plants', label: 'Air-Purifying Plants' },
-  { id: 'Flowering Plants', label: 'Flowering Plants' },
   { id: 'Succulents & Cacti', label: 'Succulents & Cacti' },
   { id: 'Herbs & Medicinal', label: 'Herbs & Medicinal' },
-  { id: 'Customized Kits', label: 'Customized Kits' },
-  { id: 'Seeds', label: 'Seeds' },
-  { id: 'Fertilizers', label: 'Fertilizers & Soil' },
-  { id: 'Tools', label: 'Gardening Tools' },
 ]
 
 const PAGE_SIZE = 12
@@ -88,7 +89,7 @@ export function ShopPage() {
   const selectedWater = (params.get('water') as WaterRequirement | null) ?? null
   const selectedMaintenance = (params.get('maintenance') as MaintenanceLevel | null) ?? null
   const selectedPurpose = (params.get('purpose') as PlantPurpose | null) ?? null
-  const selectedCategory = params.get('category') || 'all'
+  const selectedCategory = params.get('cat') || params.get('category') || 'all'
   const selectedPetFriendly = params.get('pet_friendly') === 'true'
   const selectedBeginner = params.get('beginner') === 'true'
   const minPrice = Number(params.get('min_price') ?? '0')
@@ -98,72 +99,103 @@ export function ShopPage() {
 
   // Record searches for personalized recommendations
   useEffect(() => {
-    if (searchQ) {
+    if (searchQ && searchQ.length > 2) {
       recordSearchQuery(searchQ)
     }
   }, [searchQ, recordSearchQuery])
 
-  // Compound Filter Algorithm
-  const filtered = useMemo(() => {
+  function updateParam(key: string, value: string | null) {
+    const next = new URLSearchParams(params)
+    if (value === null || value === '' || (key === 'category' && value === 'all')) {
+      next.delete(key)
+    } else {
+      next.set(key, value)
+    }
+    setParams(next)
+    setPage(1)
+  }
+
+  function resetAllFilters() {
+    setParams(new URLSearchParams())
+    setPage(1)
+  }
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (selectedEnv) count++
+    if (selectedSpace) count++
+    if (selectedLight) count++
+    if (selectedWater) count++
+    if (selectedMaintenance) count++
+    if (selectedPurpose) count++
+    if (selectedPetFriendly) count++
+    if (selectedBeginner) count++
+    if (selectedCategory && selectedCategory !== 'all') count++
+    if (minPrice > 0 || maxPrice < 2000) count++
+    if (searchQ) count++
+    return count
+  }, [
+    selectedEnv,
+    selectedSpace,
+    selectedLight,
+    selectedWater,
+    selectedMaintenance,
+    selectedPurpose,
+    selectedPetFriendly,
+    selectedBeginner,
+    selectedCategory,
+    minPrice,
+    maxPrice,
+    searchQ,
+  ])
+
+  // Filter and Sort Products
+  const filteredProducts = useMemo(() => {
     return localProducts.filter((p) => {
-      // 1. Search Query
+      // Search
       if (searchQ) {
-        const matchesName = p.name.toLowerCase().includes(searchQ)
-        const matchesSci = p.scientificName?.toLowerCase().includes(searchQ)
-        const matchesDesc = p.description.toLowerCase().includes(searchQ)
-        const matchesTags = p.tags.some((t) => t.toLowerCase().includes(searchQ))
-        const matchesBenefits = p.benefits?.toLowerCase().includes(searchQ)
-        if (!matchesName && !matchesSci && !matchesDesc && !matchesTags && !matchesBenefits) {
-          return false
-        }
+        const inName = p.name.toLowerCase().includes(searchQ)
+        const inSci = p.scientificName?.toLowerCase().includes(searchQ) ?? false
+        const inDesc = p.description.toLowerCase().includes(searchQ)
+        const inTag = p.tags.some((t) => t.toLowerCase().includes(searchQ))
+        const inCat = (p.category || '').toLowerCase().includes(searchQ)
+        const inMainCat = p.mainCategory?.toLowerCase().includes(searchQ) ?? false
+        if (!inName && !inSci && !inDesc && !inTag && !inCat && !inMainCat) return false
       }
 
-      // 2. Category Filter
+      // Main Category / Subcategory
       if (selectedCategory && selectedCategory !== 'all') {
-        if (p.category !== selectedCategory) return false
+        const matchMain = (p.mainCategory || p.type || '').toLowerCase() === selectedCategory.toLowerCase()
+        const matchSub = (p.category || '').toLowerCase() === selectedCategory.toLowerCase()
+        if (!matchMain && !matchSub) return false
       }
 
-      // 3. Environment (Indoor / Outdoor / Both)
-      if (selectedEnv) {
-        if (p.environment !== selectedEnv && p.environment !== 'both') return false
-      }
+      // Environment
+      if (selectedEnv && p.environment !== 'both' && p.environment !== selectedEnv) return false
 
-      // 4. Available Space
-      if (selectedSpace) {
-        if (!p.suitableSpace?.includes(selectedSpace)) return false
-      }
+      // Space
+      if (selectedSpace && !(p.suitableSpace || []).includes(selectedSpace)) return false
 
-      // 5. Light Requirement
-      if (selectedLight) {
-        if (p.lightRequirement !== selectedLight) return false
-      }
+      // Light
+      if (selectedLight && p.lightRequirement && p.lightRequirement !== selectedLight) return false
 
-      // 6. Water Requirement
-      if (selectedWater) {
-        if (p.waterRequirement !== selectedWater) return false
-      }
+      // Water
+      if (selectedWater && p.waterRequirement && p.waterRequirement !== selectedWater) return false
 
-      // 7. Maintenance Level
-      if (selectedMaintenance) {
-        if (p.maintenance !== selectedMaintenance && p.difficulty !== selectedMaintenance) return false
-      }
+      // Maintenance
+      if (selectedMaintenance && p.maintenance && p.maintenance !== selectedMaintenance) return false
 
-      // 8. Purpose
-      if (selectedPurpose) {
-        if (!p.purpose?.includes(selectedPurpose)) return false
-      }
+      // Purpose
+      if (selectedPurpose && !(p.benefits || '').toLowerCase().includes(selectedPurpose.toLowerCase())) return false
 
-      // 9. Pet Friendly
-      if (selectedPetFriendly) {
-        if (!p.isPetFriendly && p.petSafety !== 'Pet-Friendly') return false
-      }
+      // Pet Friendly
+      if (selectedPetFriendly && !p.isPetFriendly) return false
 
-      // 10. Beginner Friendly
-      if (selectedBeginner) {
-        if (!p.beginnerFriendly && p.maintenance !== 'Easy') return false
-      }
+      // Beginner Friendly
+      if (selectedBeginner && !p.beginnerFriendly) return false
 
-      // 11. Price Range
+      // Price Range
       if (p.price < minPrice || p.price > maxPrice) return false
 
       return true
@@ -183,67 +215,33 @@ export function ShopPage() {
     maxPrice,
   ])
 
-  // Sorting
-  const sorted = useMemo(() => {
-    const list = [...filtered]
-    if (sort === 'price-asc') list.sort((a, b) => a.price - b.price)
-    if (sort === 'price-desc') list.sort((a, b) => b.price - a.price)
-    if (sort === 'name-asc') list.sort((a, b) => a.name.localeCompare(b.name))
-    if (sort === 'popular') list.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-    return list
-  }, [filtered, sort])
+  // Sorted list
+  const sortedProducts = useMemo(() => {
+    const list = [...filteredProducts]
+    if (sort === 'price-asc') return list.sort((a, b) => a.price - b.price)
+    if (sort === 'price-desc') return list.sort((a, b) => b.price - a.price)
+    if (sort === 'name-asc') return list.sort((a, b) => a.name.localeCompare(b.name))
+    return list.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+  }, [filteredProducts, sort])
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
-  const safePage = Math.min(page, totalPages)
-  const pageItems = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
-
-  function updateParam(key: string, value: string | null) {
-    const next = new URLSearchParams(params)
-    if (!value || value === 'all' || value === 'false') {
-      next.delete(key)
-    } else {
-      next.set(key, value)
-    }
-    setParams(next, { replace: true })
-    setPage(1)
-  }
-
-  function resetAllFilters() {
-    setParams(new URLSearchParams(), { replace: true })
-    setPage(1)
-  }
-
-  const activeFilterCount = [
-    selectedEnv,
-    selectedSpace,
-    selectedLight,
-    selectedWater,
-    selectedMaintenance,
-    selectedPurpose,
-    selectedCategory !== 'all' ? selectedCategory : null,
-    selectedPetFriendly ? 'pet' : null,
-    selectedBeginner ? 'beginner' : null,
-    minPrice > 0 || maxPrice < 2000 ? 'price' : null,
-    searchQ || null,
-  ].filter(Boolean).length
+  const totalPages = Math.ceil(sortedProducts.length / PAGE_SIZE)
+  const paginatedProducts = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return sortedProducts.slice(start, start + PAGE_SIZE)
+  }, [sortedProducts, page])
 
   return (
-    <div className="space-y-8">
-      {/* Breadcrumb & Header */}
-      <div>
-        <nav className="text-xs font-semibold text-stone-500 mb-2">
-          <Link to="/" className="hover:text-phyto-leaf">Home</Link>
-          <span className="mx-2">/</span>
-          <span className="text-phyto-forest">Botanical Catalog</span>
-        </nav>
-        <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-6 pb-16">
+      {/* Top Banner & Header */}
+      <div className="rounded-3xl border border-phyto-forest/10 bg-white p-6 shadow-card md:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight text-phyto-forest md:text-4xl">
-              Explore Our Plant Collection
+              Explore Botanical Collection
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-stone-600">
-              Browse over 100+ vetted living plants, customized kits, and organic care supplies.
+              Browse over 220+ living plants, heirloom seeds, fragrant flowers, fertilizers, and designer pots.
             </p>
           </div>
 
@@ -305,7 +303,7 @@ export function ShopPage() {
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="size-4 text-phyto-forest" />
-                <span className="font-display text-base font-bold text-phyto-forest">Filter by Your Needs</span>
+                <span className="font-display text-base font-bold text-phyto-forest">Filter by Need</span>
               </div>
               {activeFilterCount > 0 && (
                 <button
@@ -322,9 +320,7 @@ export function ShopPage() {
             {/* Quick Lifestyle Toggles */}
             <div className="space-y-2">
               <label className="flex items-center justify-between rounded-2xl border border-stone-200 p-2.5 cursor-pointer hover:bg-stone-50 transition">
-                <span className="text-xs font-bold text-phyto-forest flex items-center gap-1.5">
-                  <span>🐶</span> Pet-Friendly Only
-                </span>
+                <span className="text-xs font-bold text-phyto-forest">Pet-Friendly Only</span>
                 <input
                   type="checkbox"
                   checked={selectedPetFriendly}
@@ -334,9 +330,7 @@ export function ShopPage() {
               </label>
 
               <label className="flex items-center justify-between rounded-2xl border border-stone-200 p-2.5 cursor-pointer hover:bg-stone-50 transition">
-                <span className="text-xs font-bold text-phyto-forest flex items-center gap-1.5">
-                  <span>🌱</span> Beginner-Friendly
-                </span>
+                <span className="text-xs font-bold text-phyto-forest">Beginner-Friendly Only</span>
                 <input
                   type="checkbox"
                   checked={selectedBeginner}
@@ -359,7 +353,7 @@ export function ShopPage() {
                       : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                   )}
                 >
-                  🏠 Indoor
+                  Indoor
                 </button>
                 <button
                   type="button"
@@ -371,14 +365,14 @@ export function ShopPage() {
                       : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                   )}
                 >
-                  ☀️ Outdoor
+                  Outdoor
                 </button>
               </div>
             </FilterSection>
 
             {/* Suitable Space */}
-            <FilterSection title="Available Space in Your Home">
-              <div className="grid grid-cols-2 gap-1.5">
+            <FilterSection title="Suitable Space">
+              <div className="grid grid-cols-2 gap-2">
                 {SPACES.map((sp) => {
                   const isSelected = selectedSpace === sp.id
                   return (
@@ -387,42 +381,43 @@ export function ShopPage() {
                       type="button"
                       onClick={() => updateParam('space', isSelected ? null : sp.id)}
                       className={clsx(
-                        'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-left transition border',
+                        'flex items-center justify-center rounded-xl p-2 text-xs font-bold transition border',
                         isSelected
-                          ? 'bg-phyto-sage text-phyto-forest border-phyto-leaf ring-1 ring-phyto-leaf'
-                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          ? 'bg-phyto-forest text-white border-phyto-forest'
+                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                       )}
                     >
-                      <span>{sp.icon}</span>
-                      <span className="truncate">{sp.label}</span>
+                      <span>{sp.label}</span>
                     </button>
                   )
                 })}
               </div>
             </FilterSection>
 
-            {/* Sunlight / Light Requirement */}
-            <FilterSection title="Sunlight Exposure">
+            {/* Sunlight / Light Exposure */}
+            <FilterSection title="Sunlight Requirement">
               <div className="space-y-1.5">
-                {LIGHT_OPTIONS.map((l) => {
-                  const isSelected = selectedLight === l.id
+                {LIGHT_OPTIONS.map((lo) => {
+                  const isSelected = selectedLight === lo.id
                   return (
                     <button
-                      key={l.id}
+                      key={lo.id}
                       type="button"
-                      onClick={() => updateParam('light', isSelected ? null : l.id)}
+                      onClick={() => updateParam('light', isSelected ? null : lo.id)}
                       className={clsx(
-                        'flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold text-left transition border',
+                        'flex w-full items-center justify-between rounded-xl p-2 text-left text-xs transition border',
                         isSelected
-                          ? 'bg-phyto-sage text-phyto-forest border-phyto-leaf'
-                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          ? 'bg-phyto-forest text-white border-phyto-forest'
+                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                       )}
                     >
                       <div>
-                        <p>{l.label}</p>
-                        <p className="text-[10px] text-stone-500 font-normal">{l.desc}</p>
+                        <div className="font-bold">{lo.label}</div>
+                        <div className={clsx('text-[10px]', isSelected ? 'text-stone-300' : 'text-stone-400')}>
+                          {lo.desc}
+                        </div>
                       </div>
-                      {isSelected && <Check className="size-3.5 text-phyto-leaf" />}
+                      {isSelected && <Check className="size-4" />}
                     </button>
                   )
                 })}
@@ -430,23 +425,29 @@ export function ShopPage() {
             </FilterSection>
 
             {/* Water Requirement */}
-            <FilterSection title="Watering Need">
-              <div className="grid grid-cols-3 gap-1.5">
-                {WATER_OPTIONS.map((w) => {
-                  const isSelected = selectedWater === w.id
+            <FilterSection title="Water Requirement">
+              <div className="space-y-1.5">
+                {WATER_OPTIONS.map((wo) => {
+                  const isSelected = selectedWater === wo.id
                   return (
                     <button
-                      key={w.id}
+                      key={wo.id}
                       type="button"
-                      onClick={() => updateParam('water', isSelected ? null : w.id)}
+                      onClick={() => updateParam('water', isSelected ? null : wo.id)}
                       className={clsx(
-                        'rounded-xl py-2 px-1 text-center text-xs font-bold transition border',
+                        'flex w-full items-center justify-between rounded-xl p-2 text-left text-xs transition border',
                         isSelected
                           ? 'bg-phyto-forest text-white border-phyto-forest'
                           : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                       )}
                     >
-                      {w.label.split(' ')[0]}
+                      <div>
+                        <div className="font-bold">{wo.label}</div>
+                        <div className={clsx('text-[10px]', isSelected ? 'text-stone-300' : 'text-stone-400')}>
+                          {wo.desc}
+                        </div>
+                      </div>
+                      {isSelected && <Check className="size-4" />}
                     </button>
                   )
                 })}
@@ -454,24 +455,24 @@ export function ShopPage() {
             </FilterSection>
 
             {/* Maintenance Level */}
-            <FilterSection title="Maintenance Effort">
+            <FilterSection title="Maintenance Level">
               <div className="space-y-1.5">
-                {MAINTENANCE_OPTIONS.map((m) => {
-                  const isSelected = selectedMaintenance === m.id
+                {MAINTENANCE_OPTIONS.map((mo) => {
+                  const isSelected = selectedMaintenance === mo.id
                   return (
                     <button
-                      key={m.id}
+                      key={mo.id}
                       type="button"
-                      onClick={() => updateParam('maintenance', isSelected ? null : m.id)}
+                      onClick={() => updateParam('maintenance', isSelected ? null : mo.id)}
                       className={clsx(
-                        'flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold text-left transition border',
+                        'flex w-full items-center justify-between rounded-xl p-2 text-left text-xs font-bold transition border',
                         isSelected
-                          ? 'bg-phyto-sage text-phyto-forest border-phyto-leaf'
-                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          ? 'bg-phyto-forest text-white border-phyto-forest'
+                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                       )}
                     >
-                      <span>{m.label}</span>
-                      {isSelected && <Check className="size-3.5 text-phyto-leaf" />}
+                      <span>{mo.label}</span>
+                      {isSelected && <Check className="size-4" />}
                     </button>
                   )
                 })}
@@ -480,115 +481,108 @@ export function ShopPage() {
 
             {/* Plant Purpose */}
             <FilterSection title="Plant Purpose">
-              <div className="flex flex-wrap gap-1.5">
-                {PURPOSES.map((purp) => {
-                  const isSelected = selectedPurpose === purp.id
+              <div className="space-y-1.5">
+                {PURPOSES.map((pu) => {
+                  const isSelected = selectedPurpose === pu.id
                   return (
                     <button
-                      key={purp.id}
+                      key={pu.id}
                       type="button"
-                      onClick={() => updateParam('purpose', isSelected ? null : purp.id)}
+                      onClick={() => updateParam('purpose', isSelected ? null : pu.id)}
                       className={clsx(
-                        'rounded-full px-3 py-1.5 text-[11px] font-bold transition border',
+                        'flex w-full items-center justify-between rounded-xl p-2 text-left text-xs font-bold transition border',
                         isSelected
                           ? 'bg-phyto-forest text-white border-phyto-forest'
                           : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
                       )}
                     >
-                      {purp.label}
+                      <span>{pu.label}</span>
+                      {isSelected && <Check className="size-4" />}
                     </button>
                   )
                 })}
               </div>
             </FilterSection>
 
-            {/* Price Range */}
+            {/* Price Range Slider */}
             <FilterSection title="Price Range (₹)">
-              <div className="flex items-center justify-between text-xs font-bold text-phyto-forest mb-2">
-                <span>{formatInr(minPrice)}</span>
-                <span>—</span>
-                <span>{formatInr(maxPrice)}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-phyto-forest">
+                  <span>{formatInr(minPrice)}</span>
+                  <span>{formatInr(maxPrice)}</span>
+                </div>
                 <input
-                  type="number"
-                  min={0}
-                  max={2000}
-                  step={50}
-                  value={minPrice}
-                  onChange={(e) => updateParam('min_price', e.target.value)}
-                  className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-bold"
-                  placeholder="Min ₹"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  max={2500}
-                  step={50}
+                  type="range"
+                  min="0"
+                  max="2500"
+                  step="50"
                   value={maxPrice}
-                  onChange={(e) => updateParam('max_price', e.target.value)}
-                  className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-bold"
-                  placeholder="Max ₹"
+                  onChange={(e) => updateParam('max_price', e.target.value === '2000' ? null : e.target.value)}
+                  className="w-full accent-phyto-leaf"
                 />
               </div>
             </FilterSection>
-
-            <button
-              type="button"
-              onClick={resetAllFilters}
-              className="w-full rounded-full border border-phyto-forest/20 py-2.5 text-xs font-bold text-phyto-forest hover:bg-phyto-sage/40 transition"
-            >
-              Clear All Filters
-            </button>
           </div>
         </aside>
 
-        {/* Product Catalog Grid */}
+        {/* Products Grid & Results */}
         <div className="space-y-6">
-          {/* Active Filter Chips Bar */}
+          {/* Active filter pills bar */}
           {activeFilterCount > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-phyto-sage/30 p-3 text-xs">
-              <span className="font-bold text-phyto-forest text-[11px] uppercase tracking-wider mr-1">
-                Active ({activeFilterCount}):
-              </span>
-
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-stone-100 p-3 text-xs">
+              <span className="font-bold text-stone-500">Active Filters:</span>
               {searchQ && (
-                <Chip label={`"${searchQ}"`} onRemove={() => updateParam('q', null)} />
+                <FilterPill label={`Query: "${searchQ}"`} onRemove={() => updateParam('q', null)} />
               )}
-              {selectedCategory !== 'all' && (
-                <Chip label={selectedCategory} onRemove={() => updateParam('category', null)} />
+              {selectedCategory && selectedCategory !== 'all' && (
+                <FilterPill
+                  label={`Category: ${selectedCategory}`}
+                  onRemove={() => updateParam('category', null)}
+                />
               )}
               {selectedEnv && (
-                <Chip label={`Env: ${selectedEnv}`} onRemove={() => updateParam('env', null)} />
+                <FilterPill
+                  label={`Environment: ${selectedEnv}`}
+                  onRemove={() => updateParam('env', null)}
+                />
               )}
               {selectedSpace && (
-                <Chip label={`Space: ${selectedSpace}`} onRemove={() => updateParam('space', null)} />
+                <FilterPill
+                  label={`Space: ${selectedSpace}`}
+                  onRemove={() => updateParam('space', null)}
+                />
               )}
               {selectedLight && (
-                <Chip label={`Light: ${selectedLight}`} onRemove={() => updateParam('light', null)} />
+                <FilterPill
+                  label={`Light: ${selectedLight}`}
+                  onRemove={() => updateParam('light', null)}
+                />
               )}
               {selectedWater && (
-                <Chip label={`Water: ${selectedWater}`} onRemove={() => updateParam('water', null)} />
+                <FilterPill
+                  label={`Water: ${selectedWater}`}
+                  onRemove={() => updateParam('water', null)}
+                />
               )}
               {selectedMaintenance && (
-                <Chip label={`Care: ${selectedMaintenance}`} onRemove={() => updateParam('maintenance', null)} />
-              )}
-              {selectedPurpose && (
-                <Chip label={`Purpose: ${selectedPurpose}`} onRemove={() => updateParam('purpose', null)} />
+                <FilterPill
+                  label={`Care: ${selectedMaintenance}`}
+                  onRemove={() => updateParam('maintenance', null)}
+                />
               )}
               {selectedPetFriendly && (
-                <Chip label="Pet-Friendly" onRemove={() => updateParam('pet_friendly', null)} />
+                <FilterPill label="Pet-Friendly" onRemove={() => updateParam('pet_friendly', null)} />
               )}
               {selectedBeginner && (
-                <Chip label="Beginner-Friendly" onRemove={() => updateParam('beginner', null)} />
+                <FilterPill label="Beginner-Friendly" onRemove={() => updateParam('beginner', null)} />
               )}
 
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="ml-auto text-xs font-bold text-phyto-leaf underline"
+                className="ml-auto text-xs font-bold text-red-600 hover:underline"
               >
-                Clear all
+                Clear All
               </button>
             </div>
           )}
@@ -596,78 +590,68 @@ export function ShopPage() {
           {/* Results Count */}
           <div className="flex items-center justify-between text-xs text-stone-500">
             <span>
-              Showing <strong>{sorted.length > 0 ? (safePage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(safePage * PAGE_SIZE, sorted.length)}</strong> of <strong>{sorted.length}</strong> unique plants
+              Showing <strong>{paginatedProducts.length}</strong> of{' '}
+              <strong>{sortedProducts.length}</strong> matching botanical items
             </span>
           </div>
 
-          {/* Empty State */}
-          {pageItems.length === 0 ? (
-            <div className="rounded-3xl border border-phyto-forest/10 bg-white p-12 text-center shadow-card space-y-4">
-              <div className="mx-auto grid size-16 place-items-center rounded-full bg-phyto-sage text-3xl">
-                🪴
-              </div>
-              <h3 className="font-display text-xl font-bold text-phyto-forest">
-                No plants match your specific filter combination
-              </h3>
-              <p className="text-xs text-stone-600 max-w-md mx-auto">
-                Try loosening your sunlight, space, or price filters to see more of our 100+ botanical varieties.
+          {/* Product Cards Grid */}
+          {paginatedProducts.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {paginatedProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-phyto-forest/10 bg-white p-12 text-center space-y-4 shadow-card">
+              <h3 className="font-display text-xl font-bold text-phyto-forest">No matching botanical items</h3>
+              <p className="text-xs text-stone-500 max-w-md mx-auto">
+                No items match your selected space, sunlight, or category filters. Try widening your criteria.
               </p>
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-2 rounded-full bg-phyto-forest px-6 py-3 text-xs font-bold text-white hover:bg-phyto-leaf transition"
+                className="rounded-full bg-phyto-forest px-6 py-2.5 text-xs font-bold text-white hover:bg-phyto-leaf transition"
               >
-                <RotateCcw className="size-3.5" />
-                <span>Reset All Filters</span>
+                Reset All Filters
               </button>
-            </div>
-          ) : (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {pageItems.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-stone-200 pt-6 text-xs text-stone-600">
-              <span>
-                Page {safePage} of {totalPages}
-              </span>
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+                className="grid size-9 place-items-center rounded-full border border-stone-200 bg-white text-stone-700 shadow-xs hover:bg-stone-50 disabled:opacity-40"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
                 <button
+                  key={num}
                   type="button"
-                  disabled={safePage <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="grid size-9 place-items-center rounded-full border border-stone-200 disabled:opacity-30 hover:bg-stone-100"
+                  onClick={() => setPage(num)}
+                  className={clsx(
+                    'size-9 rounded-full text-xs font-bold transition shadow-xs',
+                    page === num
+                      ? 'bg-phyto-forest text-white'
+                      : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                  )}
                 >
-                  <ChevronLeft className="size-4" />
+                  {num}
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setPage(n)}
-                    className={clsx(
-                      'grid size-9 place-items-center rounded-full text-xs font-bold transition',
-                      n === safePage
-                        ? 'bg-phyto-forest text-white'
-                        : 'border border-stone-200 hover:bg-phyto-sage/40'
-                    )}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={safePage >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="grid size-9 place-items-center rounded-full border border-stone-200 disabled:opacity-30 hover:bg-stone-100"
-                >
-                  <ChevronRight className="size-4" />
-                </button>
-              </div>
+              ))}
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="grid size-9 place-items-center rounded-full border border-stone-200 bg-white text-stone-700 shadow-xs hover:bg-stone-50 disabled:opacity-40"
+              >
+                <ChevronRight className="size-4" />
+              </button>
             </div>
           )}
         </div>
@@ -678,22 +662,18 @@ export function ShopPage() {
 
 function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
-      <div className="text-[11px] font-bold uppercase tracking-wider text-stone-500">{title}</div>
+    <div className="space-y-2 border-t border-stone-100 pt-4">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">{title}</h3>
       {children}
     </div>
   )
 }
 
-function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-phyto-forest shadow-2xs border border-phyto-forest/10">
+    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 font-bold text-phyto-forest border border-stone-200 shadow-xs">
       <span>{label}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="rounded-full hover:bg-stone-100 p-0.5"
-      >
+      <button type="button" onClick={onRemove} className="text-stone-400 hover:text-stone-600">
         <X className="size-3" />
       </button>
     </span>

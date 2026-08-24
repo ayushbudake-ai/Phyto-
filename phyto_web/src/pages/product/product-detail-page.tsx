@@ -1,89 +1,89 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { useCart } from '../../features/cart/cart-context'
-import { useAuth } from '../../features/auth/auth-context'
+import { useState } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useCart } from '../../features/cart/cart-context'
 import { formatInr } from '../../lib/format'
+import { products } from '../../data/products'
 import {
-  Droplets,
   Sun,
-  ShoppingBag,
-  Star,
-  Truck,
-  Sparkles,
+  Droplets,
   Thermometer,
   Wind,
+  ShoppingBag,
+  Star,
+  ChevronLeft,
+  Truck,
+  Sparkles,
   CheckCircle2,
 } from 'lucide-react'
-import { products } from '../../data/products'
 
 export function ProductDetailPage() {
   const { id } = useParams()
+  const nav = useNavigate()
   const { addToCart } = useCart()
-  const { recordProductView } = useAuth()
+
   const [includeKit, setIncludeKit] = useState(false)
   const [addService, setAddService] = useState(false)
   const [addedToast, setAddedToast] = useState(false)
 
-  // Find product from local catalog or fallback
-  const product = useMemo(() => {
-    if (!id) return null
-    return (
-      products.find((p) => p.id === id || p.id === `p${id}` || p.id.replace('p', '') === id) ||
-      products[0]
-    )
-  }, [id])
-
-  // Record product view in user's personalized profile
-  useEffect(() => {
-    if (product) {
-      recordProductView(product.id)
-    }
-  }, [product, recordProductView])
+  const product = products.find((p) => String(p.id) === String(id))
 
   if (!product) {
     return (
-      <div className="rounded-3xl border border-phyto-forest/10 bg-white p-16 text-center shadow-card">
-        <h1 className="font-display text-xl font-semibold text-phyto-forest">Botanical item not found</h1>
-        <Link to="/shop" className="mt-4 inline-block font-bold text-phyto-leaf underline">
-          Back to catalog
+      <div className="mx-auto max-w-lg py-16 text-center space-y-4">
+        <h1 className="font-display text-2xl font-bold text-phyto-forest">Plant Not Found</h1>
+        <p className="text-xs text-stone-500">The requested botanical product is not available in the current catalog.</p>
+        <Link
+          to="/shop"
+          className="inline-flex items-center gap-1 rounded-full bg-phyto-forest px-6 py-2.5 text-xs font-bold text-white hover:bg-phyto-leaf transition"
+        >
+          <ChevronLeft className="size-4" />
+          <span>Back to Catalog</span>
         </Link>
       </div>
     )
   }
 
-  const isPetSafe = product.isPetFriendly || product.petSafety === 'Pet-Friendly'
-
-  async function handleAddToCart() {
+  function handleAddToCart() {
     if (!product) return
-    await addToCart(product, { quantity: 1, includeKit, addService })
+    addToCart(product, { quantity: 1, includeKit, addService })
     setAddedToast(true)
     setTimeout(() => setAddedToast(false), 3000)
   }
 
+  const isPetSafe = product.isPetFriendly
+
   return (
-    <div className="space-y-10">
-      {/* Breadcrumb */}
-      <nav className="text-xs font-semibold text-stone-500">
-        <Link to="/shop" className="hover:text-phyto-leaf">Catalog</Link>
-        <span className="mx-2">/</span>
-        <span>{product.category || 'Plants'}</span>
-        <span className="mx-2">/</span>
-        <span className="font-bold text-phyto-forest">{product.name}</span>
-      </nav>
+    <div className="space-y-8 max-w-5xl mx-auto pb-16">
+      {/* Back Button */}
+      <button
+        type="button"
+        onClick={() => nav(-1)}
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-600 hover:text-phyto-forest transition"
+      >
+        <ChevronLeft className="size-4" />
+        <span>Back to Collection</span>
+      </button>
 
       {/* Main Product Showcase */}
-      <div className="grid gap-10 lg:grid-cols-2">
-        {/* Gallery */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          <div className="overflow-hidden rounded-3xl border border-phyto-forest/10 bg-stone-100 shadow-card">
-            <div className="aspect-[4/3]">
-              {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="size-full object-cover" />
-              ) : (
-                <div className="flex size-full items-center justify-center text-4xl">🪴</div>
-              )}
-            </div>
+      <div className="grid gap-10 md:grid-cols-12 items-start">
+        {/* Product Image & Key Badges */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4 md:col-span-6"
+        >
+          <div className="relative aspect-square overflow-hidden rounded-3xl border border-phyto-forest/10 bg-white shadow-card">
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="h-full w-full object-cover"
+            />
+            {product.nurseryCity && (
+              <span className="absolute bottom-4 left-4 rounded-full bg-black/60 backdrop-blur-xs px-3 py-1 text-[10px] font-bold text-white">
+                Fulfill from {product.nurseryCity} Hub
+              </span>
+            )}
           </div>
 
           <div className="flex gap-2">
@@ -93,7 +93,7 @@ export function ProductDetailPage() {
             </div>
             <div className="rounded-2xl border border-phyto-forest/10 bg-white p-3 flex-1 text-center">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Pet Safety</span>
-              <span className="text-xs font-bold text-emerald-800">{isPetSafe ? '🐶 Pet-Safe' : '⚠️ Toxic if ingested'}</span>
+              <span className="text-xs font-bold text-emerald-800">{isPetSafe ? 'Pet-Safe' : 'Caution: Ingestion Hazard'}</span>
             </div>
             <div className="rounded-2xl border border-phyto-forest/10 bg-white p-3 flex-1 text-center">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">Care Level</span>
@@ -103,19 +103,19 @@ export function ProductDetailPage() {
         </motion.div>
 
         {/* Product Details */}
-        <div className="space-y-6">
+        <div className="space-y-6 md:col-span-6">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-phyto-sage px-3 py-1 text-xs font-bold text-phyto-forest">
               {product.category || 'Indoor Plants'}
             </span>
             {product.beginnerFriendly && (
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-900">
-                🌱 Beginner Friendly
+                Beginner Friendly
               </span>
             )}
             {isPetSafe && (
               <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
-                🐶 Non-Toxic
+                Non-Toxic
               </span>
             )}
           </div>
@@ -134,7 +134,7 @@ export function ProductDetailPage() {
             <div className="flex items-center gap-1 text-amber-500 text-sm font-bold">
               <Star className="size-4 fill-amber-500" />
               <span>{product.rating || 4.8}</span>
-              <span className="text-xs text-stone-400">({product.reviewsCount || 128} reviews)</span>
+              <span className="text-xs text-stone-400">({product.reviewsCount || 128} verified reviews)</span>
             </div>
           </div>
 
@@ -197,7 +197,7 @@ export function ProductDetailPage() {
             {addedToast && (
               <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 p-3 text-xs font-bold text-emerald-800">
                 <CheckCircle2 className="size-4 text-emerald-600" />
-                <span>Added to cart successfully!</span>
+                <span>Added to cart successfully</span>
               </div>
             )}
 

@@ -8,6 +8,9 @@ import { CheckoutPage } from '../pages/checkout/checkout-page'
 import { KitsPage } from '../pages/kits/kits-page'
 import { ServicesPage } from '../pages/services/services-page'
 import { ProfilePage } from '../pages/profile/profile-page'
+import { GreenIndexPage } from '../pages/green-index/green-index-page'
+import { NurseryDashboardPage } from '../pages/nursery/nursery-dashboard-page'
+import { GardenerDashboardPage } from '../pages/gardener/gardener-dashboard-page'
 import { AdminGate, AdminLoginPage, AdminPanelPage } from '../pages/admin/admin-pages'
 import { LoginPage } from '../pages/auth/login-page'
 import { DeliveryPage } from '../pages/delivery/delivery-page'
@@ -101,6 +104,30 @@ export const AppRouter = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'green-index',
+        element: (
+          <ProtectedRoute>
+            <GreenIndexPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'nursery',
+        element: (
+          <ProtectedRoute>
+            <NurseryDashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'gardener',
+        element: (
+          <ProtectedRoute>
+            <GardenerDashboardPage />
           </ProtectedRoute>
         ),
       },

@@ -1,21 +1,11 @@
-// phyto_web/src/features/chatbot/PlantRecommender.tsx
-// ─────────────────────────────────────────────────────────────
-// Algorithm-based "Find Your Perfect Plant" widget
-// HOW TO ADD:
-//   Import and drop anywhere on the page:
-//   import { PlantRecommender } from '../../features/chatbot/PlantRecommender'
-//   <PlantRecommender />
-//
-//   Best placed on HomePage after the hero section.
-// ─────────────────────────────────────────────────────────────
-
 import { useState } from 'react'
 import { apiFetch } from '../../lib/api'
 import { Link } from 'react-router-dom'
 import { products } from '../../data/products'
 import {
   Sun, Home, Heart, Wallet,
-  Sparkles, Loader2, ChevronRight, Star
+  Sparkles, Loader2,
+  Check, ArrowRight
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -34,7 +24,7 @@ interface Step {
   id: string
   question: string
   icon: React.ReactNode
-  options: { label: string; value: string; emoji: string }[]
+  options: { label: string; value: string; desc?: string }[]
   multi?: boolean
 }
 
@@ -45,9 +35,9 @@ const STEPS: Step[] = [
     question: 'Where will your plant live?',
     icon: <Home className="w-5 h-5" />,
     options: [
-      { label: 'Indoors', value: 'indoor', emoji: '🏠' },
-      { label: 'Outdoors', value: 'outdoor', emoji: '🌳' },
-      { label: 'Both', value: 'both', emoji: '🌿' },
+      { label: 'Indoors', value: 'indoor', desc: 'Living room, bedroom, or desk' },
+      { label: 'Outdoors', value: 'outdoor', desc: 'Balcony, garden, or terrace' },
+      { label: 'Both', value: 'both', desc: 'Adaptable indoor-outdoor flora' },
     ],
   },
   {
@@ -55,19 +45,28 @@ const STEPS: Step[] = [
     question: 'How much sunlight does that spot get?',
     icon: <Sun className="w-5 h-5" />,
     options: [
-      { label: 'Bright sunlight', value: 'full_sun', emoji: '☀️' },
-      { label: 'Partial / filtered', value: 'partial', emoji: '⛅' },
-      { label: 'Low light / shade', value: 'shade', emoji: '🌥️' },
+      { label: 'Bright direct sunlight', value: 'full_sun', desc: 'Direct morning or afternoon sun' },
+      { label: 'Medium indirect light', value: 'partial', desc: 'Bright filtered daylight' },
+      { label: 'Low light / shade', value: 'shade', desc: 'Corners or low-window spaces' },
     ],
   },
   {
-    id: 'maintenance',
-    question: 'How much time can you give?',
+    id: 'experience',
+    question: 'What is your gardening experience level?',
+    icon: <Sparkles className="w-5 h-5" />,
+    options: [
+      { label: 'Complete Beginner', value: 'beginner', desc: 'Resilient and hard-to-kill plants' },
+      { label: 'Intermediate', value: 'intermediate', desc: 'Comfortable with basic care routines' },
+      { label: 'Green Thumb', value: 'expert', desc: 'Happy to nurture exotic plants' },
+    ],
+  },
+  {
+    id: 'pets',
+    question: 'Do you have pets at home?',
     icon: <Heart className="w-5 h-5" />,
     options: [
-      { label: 'Minimal — set & forget', value: 'low', emoji: '😌' },
-      { label: 'Some weekly care', value: 'medium', emoji: '🙂' },
-      { label: 'I love tending plants!', value: 'high', emoji: '🤗' },
+      { label: 'Yes, need pet-safe plants', value: 'yes', desc: '100% Non-toxic to cats and dogs' },
+      { label: 'No pets at home', value: 'no', desc: 'Any botanical plant is fine' },
     ],
   },
   {
@@ -75,276 +74,234 @@ const STEPS: Step[] = [
     question: 'What is your budget per plant?',
     icon: <Wallet className="w-5 h-5" />,
     options: [
-      { label: 'Under ₹200', value: '200', emoji: '💰' },
-      { label: '₹200 – ₹600', value: '600', emoji: '💵' },
-      { label: '₹600+', value: '9999', emoji: '✨' },
+      { label: 'Under ₹300', value: 'low', desc: 'Pocket-friendly botanicals' },
+      { label: '₹300 - ₹700', value: 'medium', desc: 'Standard potted specimens' },
+      { label: 'Above ₹700', value: 'high', desc: 'Large statement plants' },
     ],
   },
 ]
 
-// ── Main Component ──────────────────────────────────────────
 export function PlantRecommender() {
-  const [step, setStep] = useState(0)
+  const [currentStep, setCurrentStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [results, setResults] = useState<RecommendedProduct[]>([])
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
-  const currentStep = STEPS[step]
+  const step = STEPS[currentStep]
 
-  const select = async (value: string) => {
-    const newAnswers = { ...answers, [currentStep.id]: value }
-    setAnswers(newAnswers)
+  function selectOption(value: string) {
+    const nextAnswers = { ...answers, [step.id]: value }
+    setAnswers(nextAnswers)
 
-    if (step < STEPS.length - 1) {
-      setStep(s => s + 1)
-      return
+    if (currentStep < STEPS.length - 1) {
+      setCurrentStep((prev) => prev + 1)
+    } else {
+      fetchRecommendations(nextAnswers)
     }
+  }
 
-    // Final step — fetch recommendations
+  async function fetchRecommendations(ans: Record<string, string>) {
     setLoading(true)
     setDone(true)
 
     try {
-      const data = await apiFetch<{ recommendations: RecommendedProduct[] }>(
-        '/chatbot/recommend/quick?' + new URLSearchParams({
-          environment: newAnswers.environment ?? '',
-          sunlight: newAnswers.sunlight ?? '',
-          budget: newAnswers.budget ?? '9999',
-          limit: '4',
-        }).toString()
-      )
-      const apiResults = data.recommendations ?? []
-      setResults(apiResults.length > 0 ? apiResults : localRecommendations(newAnswers))
+      const budgetMax =
+        ans.budget === 'low' ? 300 : ans.budget === 'medium' ? 700 : 2500
+
+      const data = await apiFetch<RecommendedProduct[]>('/recommendations/plants', {
+        method: 'POST',
+        json: {
+          environment: ans.environment,
+          sunlight: ans.sunlight,
+          is_pet_owner: ans.pets === 'yes',
+          is_beginner: ans.experience === 'beginner',
+          budget_tier: ans.budget,
+          max_price: budgetMax,
+          limit: 3,
+        },
+      })
+      setResults(data)
     } catch {
-      // Fallback to local catalog matching when backend/DB is unavailable.
-      setResults(localRecommendations(newAnswers))
+      // Fallback matching from local 228+ catalog
+      const fallback = products
+        .filter((p) => {
+          if (ans.pets === 'yes' && !p.isPetFriendly) return false
+          if (ans.experience === 'beginner' && !p.beginnerFriendly) return false
+          if (ans.budget === 'low' && p.price > 300) return false
+          if (ans.budget === 'medium' && (p.price < 300 || p.price > 700)) return false
+          if (ans.budget === 'high' && p.price < 700) return false
+          return true
+        })
+        .slice(0, 3)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          image_url: p.imageUrl || null,
+          type: p.type || 'plants',
+          match_score: 95,
+          match_reasons: [
+            p.beginnerFriendly ? 'Beginner Friendly' : 'Easy Care',
+            p.isPetFriendly ? 'Pet Safe' : 'Standard Plant',
+            'Budget Match',
+          ],
+        }))
+      setResults(fallback)
     } finally {
       setLoading(false)
     }
   }
 
-  const reset = () => {
-    setStep(0)
+  function resetQuiz() {
     setAnswers({})
+    setCurrentStep(0)
     setResults([])
     setDone(false)
-    setLoading(false)
   }
 
   return (
-    <section className="bg-[rgb(var(--phyto-forest))] rounded-2xl p-6 md:p-10 my-10">
-
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full bg-green-400/20 flex items-center justify-center">
-          <Sparkles className="w-5 h-5 text-green-300" />
-        </div>
-        <div>
-          <h2 className="text-white font-display text-xl font-semibold">
-            Find Your Perfect Plant
-          </h2>
-          <p className="text-green-300 text-sm">
-            Answer 4 quick questions — our algorithm picks the best match for you
-          </p>
-        </div>
-      </div>
-
-      {/* Quiz */}
-      {!done && (
+    <div className="rounded-3xl border border-phyto-forest/10 bg-white p-6 shadow-card md:p-8 space-y-6">
+      {!done ? (
         <>
-          {/* Progress bar */}
-          <div className="flex gap-1.5 mb-6">
-            {STEPS.map((s, i) => (
-              <div
-                key={s.id}
-                className={clsx(
-                  'h-1 flex-1 rounded-full transition-all duration-300',
-                  i <= step ? 'bg-green-400' : 'bg-white/20'
-                )}
-              />
-            ))}
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="grid size-9 place-items-center rounded-xl bg-phyto-forest text-white">
+                <Sparkles className="size-4" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-phyto-forest">Find Your Perfect Plant</h3>
+                <p className="text-xs text-stone-500">
+                  Step {currentStep + 1} of {STEPS.length}
+                </p>
+              </div>
+            </div>
+
+            {/* Progress dots */}
+            <div className="flex gap-1.5">
+              {STEPS.map((_, i) => (
+                <div
+                  key={i}
+                  className={clsx(
+                    'h-1.5 rounded-full transition-all',
+                    i === currentStep
+                      ? 'w-6 bg-phyto-forest'
+                      : i < currentStep
+                      ? 'w-2 bg-phyto-leaf'
+                      : 'w-2 bg-stone-200'
+                  )}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Question */}
-          <div className="flex items-center gap-2 text-green-200 text-sm font-medium mb-4">
-            {currentStep.icon}
-            <span>Step {step + 1} of {STEPS.length}</span>
-          </div>
-          <h3 className="text-white text-lg font-semibold mb-5">
-            {currentStep.question}
-          </h3>
+          <div className="space-y-4">
+            <h4 className="font-display text-base font-bold text-phyto-forest">
+              {step.question}
+            </h4>
 
-          {/* Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {currentStep.options.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => select(opt.value)}
-                className={clsx(
-                  'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-150',
-                  'border-white/20 bg-white/5 text-white',
-                  'hover:bg-white/15 hover:border-green-400 hover:scale-105',
-                  'active:scale-100'
-                )}
-              >
-                <span className="text-2xl">{opt.emoji}</span>
-                <span className="text-sm font-medium text-center">{opt.label}</span>
-              </button>
-            ))}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {step.options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => selectOption(opt.value)}
+                  className="group flex flex-col items-start rounded-2xl border border-stone-200 bg-stone-50/60 p-4 text-left hover:border-phyto-leaf hover:bg-white hover:shadow-xs transition"
+                >
+                  <p className="text-xs font-bold text-phyto-forest group-hover:text-emerald-800">
+                    {opt.label}
+                  </p>
+                  {opt.desc && (
+                    <p className="mt-1 text-[11px] text-stone-500">
+                      {opt.desc}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </>
-      )}
+      ) : (
+        /* Results */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+            <div>
+              <h3 className="font-display text-xl font-bold text-phyto-forest">Your Tailored Botanical Matches</h3>
+              <p className="text-xs text-stone-500">Based on your space, light, experience, and budget</p>
+            </div>
+            <button
+              type="button"
+              onClick={resetQuiz}
+              className="text-xs font-bold text-phyto-leaf hover:underline"
+            >
+              Retake Quiz
+            </button>
+          </div>
 
-      {/* Results */}
-      {done && (
-        <>
           {loading ? (
-            <div className="flex items-center justify-center gap-3 py-10">
-              <Loader2 className="w-6 h-6 animate-spin text-green-300" />
-              <span className="text-green-200 text-sm">Finding your perfect plants...</span>
+            <div className="flex items-center justify-center py-12 gap-3">
+              <Loader2 className="size-6 animate-spin text-phyto-leaf" />
+              <span className="text-xs font-bold text-phyto-forest">Evaluating botanical matches…</span>
+            </div>
+          ) : results.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              {results.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm space-y-3 flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    {item.image_url && (
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="h-36 w-full rounded-xl object-cover"
+                      />
+                    )}
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                          {item.match_score}% Match
+                        </span>
+                        <span className="font-bold text-phyto-forest text-sm">₹{item.price}</span>
+                      </div>
+                      <h4 className="font-display text-sm font-bold text-phyto-forest mt-1 truncate">
+                        {item.name}
+                      </h4>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1">
+                      {item.match_reasons.map((r, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-600"
+                        >
+                          <Check className="size-2.5 text-emerald-600" />
+                          <span>{r}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Link
+                    to={`/product/${item.id}`}
+                    className="flex items-center justify-center gap-1 w-full rounded-xl bg-phyto-forest py-2 text-xs font-bold text-white hover:bg-phyto-leaf transition"
+                  >
+                    <span>View Plant</span>
+                    <ArrowRight className="size-3" />
+                  </Link>
+                </div>
+              ))}
             </div>
           ) : (
-            <>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-white font-semibold text-lg">
-                  🌱 Your Perfect Matches
-                </h3>
-                <button
-                  onClick={reset}
-                  className="text-green-300 text-sm hover:text-white transition-colors underline underline-offset-2"
-                >
-                  Start over
-                </button>
-              </div>
-
-              {results.length === 0 ? (
-                <div className="text-center py-8 text-green-200">
-                  <p>No exact matches found — try different preferences!</p>
-                  <button onClick={reset} className="mt-3 text-sm underline text-green-300 hover:text-white">
-                    Try again
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {results.map(product => (
-                    <Link
-                      key={product.id}
-                      to={`/product/${product.id}`}
-                      className={clsx(
-                        'group bg-white rounded-xl overflow-hidden transition-all duration-200',
-                        'hover:shadow-lg hover:-translate-y-1'
-                      )}
-                    >
-                      {/* Image */}
-                      <div className="aspect-square bg-stone-100 overflow-hidden">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-3xl">
-                            🌿
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="p-2.5">
-                        <p className="text-stone-800 text-xs font-semibold line-clamp-1 mb-1">
-                          {product.name}
-                        </p>
-
-                        {/* Match score stars */}
-                        <div className="flex items-center gap-1 mb-1.5">
-                          {[1, 2, 3].map(s => (
-                            <Star
-                              key={s}
-                              className={clsx(
-                                'w-2.5 h-2.5',
-                                product.match_score > s * 20
-                                  ? 'fill-amber-400 text-amber-400'
-                                  : 'text-stone-200 fill-stone-200'
-                              )}
-                            />
-                          ))}
-                          <span className="text-[10px] text-stone-400 ml-0.5">
-                            {product.match_score}% match
-                          </span>
-                        </div>
-
-                        <p className="text-green-700 text-xs font-bold">
-                          ₹{product.price.toFixed(0)}
-                        </p>
-
-                        {/* First reason */}
-                        {product.match_reasons?.[0] && (
-                          <p className="text-stone-400 text-[10px] mt-1 line-clamp-1">
-                            ✓ {product.match_reasons[0]}
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-4 flex justify-center">
-                <Link
-                  to="/shop"
-                  className={clsx(
-                    'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl',
-                    'bg-white/10 text-white text-sm font-medium',
-                    'hover:bg-white/20 transition-colors'
-                  )}
-                >
-                  Browse all plants <ChevronRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </>
+            <div className="text-center py-8">
+              <p className="text-xs text-stone-500">No direct matches found. Try widening your criteria.</p>
+            </div>
           )}
-        </>
+        </div>
       )}
-    </section>
+    </div>
   )
-}
-
-function localRecommendations(answers: Record<string, string>): RecommendedProduct[] {
-  const budget = Number(answers.budget ?? '9999')
-  const scored = products.map((p) => {
-    let score = 0
-    const reasons: string[] = []
-
-    if (answers.environment && p.environment === answers.environment) {
-      score += 30
-      reasons.push(`Great for ${answers.environment} spaces`)
-    }
-    if (answers.sunlight && p.sunlight.replace('-', '_') === answers.sunlight) {
-      score += 30
-      reasons.push('Matches your light preference')
-    }
-    if (Number.isFinite(budget) && p.price <= budget) {
-      score += 20
-      reasons.push('Within your budget')
-    }
-    if (answers.maintenance === 'low' && p.tags.includes('low-maintenance')) {
-      score += 15
-      reasons.push('Low-maintenance choice')
-    }
-    score += Math.min(20, Math.round(p.popularity / 5))
-
-    return {
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      image_url: p.imageUrl ?? null,
-      type: p.type,
-      match_score: Math.min(100, score),
-      match_reasons: reasons.length > 0 ? reasons : ['Popular pick for most homes'],
-    }
-  })
-
-  return scored.sort((a, b) => b.match_score - a.match_score).slice(0, 4)
 }

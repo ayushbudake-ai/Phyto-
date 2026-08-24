@@ -1,41 +1,86 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useCart } from '../../features/cart/cart-context'
 import { useAuth } from '../../features/auth/auth-context'
+import { useGreenIndex } from '../../features/green-index/green-index-context'
+import { useLocation } from '../../features/nursery/nursery-service'
 import { formatInr } from '../../lib/format'
 import { apiFetch } from '../../lib/api'
-import { Lock, Truck, CreditCard, ClipboardCheck, CheckCircle2, ShieldCheck } from 'lucide-react'
+import {
+  Truck,
+  CreditCard,
+  ClipboardCheck,
+  CheckCircle2,
+  ShieldCheck,
+  Check,
+  Award,
+} from 'lucide-react'
 import clsx from 'clsx'
 
 type Payment = 'upi' | 'card' | 'cod'
 
 export function CheckoutPage() {
-  const nav = useNavigate()
   const { items, subtotal, clear } = useCart()
   const { user } = useAuth()
+  const { addPoints } = useGreenIndex()
+  const { currentCity } = useLocation()
+
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [payment, setPayment] = useState<Payment>('upi')
   const [submitting, setSubmitting] = useState(false)
   const [orderError, setOrderError] = useState<string | null>(null)
-  const [orderPlaced, setOrderPlaced] = useState<{ id: number | string; total_amount: number } | null>(null)
+  const [orderPlaced, setOrderPlaced] = useState<{ id: number | string; total_amount: number; greenPointsAwarded: number } | null>(null)
+
+  // Voucher coupon state
+  const [couponCode, setCouponCode] = useState('')
+  const [discountPercent, setDiscountPercent] = useState(0)
+  const [couponMessage, setCouponMessage] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name: user?.name || '',
-    phone: user?.phone || '+91 98765 43210',
-    street: user?.address_street || '12 Botanical Heights, 4th Block',
-    city: user?.address_city || 'Bengaluru',
-    zip: user?.address_zip || '560034',
+    phone: user?.phone || '+91 98220 12345',
+    street: user?.address_street || 'Botanical Enclave, Main Road',
+    city: user?.address_city || currentCity,
+    zip: user?.address_zip || '416003',
   })
 
   const disabled = useMemo(() => items.length === 0, [items.length])
   const shipping = subtotal > 499 || subtotal === 0 ? 0 : 49
-  const tax = Math.round(subtotal * 0.05)
-  const total = subtotal + shipping + tax
+  const discountAmount = Math.round((subtotal * discountPercent) / 100)
+  const taxableSubtotal = Math.max(0, subtotal - discountAmount)
+  const tax = Math.round(taxableSubtotal * 0.05)
+  const total = taxableSubtotal + shipping + tax
+
+  // Calculate total Green Points earned for this basket
+  const totalGreenPoints = useMemo(() => {
+    return items.reduce((sum, it) => {
+      const perItem =
+        it.product.greenPointsAwarded ||
+        (it.product.type === 'seeds' ? 40 : it.product.type === 'pots' || it.product.type === 'fertilizers' ? 60 : 100)
+      return sum + perItem * it.quantity
+    }, 0)
+  }, [items])
+
+  function applyCoupon() {
+    const code = couponCode.trim().toUpperCase()
+    if (code === 'GREENCHAMP25') {
+      setDiscountPercent(25)
+      setCouponMessage('Green Champion 25% Discount Applied Successfully.')
+    } else if (code === 'PHYTO10') {
+      setDiscountPercent(10)
+      setCouponMessage('10% Welcome Discount Applied.')
+    } else {
+      setCouponMessage('Invalid coupon code. Please try GREENCHAMP25.')
+    }
+  }
 
   async function submit() {
     if (disabled || submitting) return
     setSubmitting(true)
     setOrderError(null)
+
+    const orderId = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
+
     try {
       const orderItems = items.map((it) => {
         const numId = Number(it.product.id)
@@ -46,70 +91,93 @@ export function CheckoutPage() {
           include_service: it.addService,
         }
       })
-      const res = await apiFetch<{ id: number; total_amount: number }>('/orders', {
+      await apiFetch<{ id: number; total_amount: number }>('/orders', {
         method: 'POST',
         json: {
           shipping_name: form.name || user?.name || 'Valued Botanical Customer',
-          shipping_street: form.street || 'Default Botanical Avenue',
-          shipping_city: form.city || 'Bengaluru',
-          shipping_pincode: form.zip || '560001',
-          shipping_phone: form.phone || '9876543210',
+          shipping_street: form.street || 'Botanical Enclave',
+          shipping_city: form.city || currentCity,
+          shipping_pincode: form.zip || '416001',
+          shipping_phone: form.phone || '9822012345',
           payment_method: payment === 'cod' ? 'cod' : 'online',
           items: orderItems,
         },
       })
-      await clear()
-      setOrderPlaced(res)
     } catch {
-      // Local fallback confirmation
-      const fallbackOrder = {
-        id: Math.floor(Math.random() * 90000 + 10000),
-        total_amount: total,
-      }
-      await clear()
-      setOrderPlaced(fallbackOrder)
-    } finally {
-      setSubmitting(false)
+      // Local fallback
     }
+
+    // Award Green Points to customer profile
+    addPoints(
+      totalGreenPoints,
+      `Botanical Order #${orderId} (${items.length} items)`,
+      'plant',
+      orderId
+    )
+
+    await clear()
+    setOrderPlaced({
+      id: orderId,
+      total_amount: total,
+      greenPointsAwarded: totalGreenPoints,
+    })
+    setSubmitting(false)
   }
 
   if (orderPlaced) {
     return (
       <div className="mx-auto max-w-lg py-12 text-center">
-        <div className="rounded-3xl border border-phyto-forest/10 bg-white p-10 shadow-card">
-          <div className="mx-auto grid size-20 place-items-center rounded-full bg-emerald-100 text-emerald-600">
+        <div className="rounded-3xl border border-phyto-forest/10 bg-white p-10 shadow-card space-y-6">
+          <div className="mx-auto grid size-20 place-items-center rounded-full bg-emerald-100 text-emerald-600 shadow-inner">
             <CheckCircle2 className="size-12" />
           </div>
-          <h1 className="font-display mt-6 text-3xl font-bold text-phyto-forest">Order Confirmed!</h1>
-          <p className="mt-2 text-xs sm:text-sm text-stone-600">
-            Thank you for your green order. Your botanical shipment has been registered with Order ID{' '}
-            <strong className="text-phyto-forest font-mono">#{orderPlaced.id}</strong>.
-          </p>
-          <div className="mt-6 rounded-2xl bg-phyto-sage/30 p-4 text-sm font-semibold text-phyto-forest flex justify-between items-center">
+          <div className="space-y-1">
+            <h1 className="font-display text-3xl font-bold text-phyto-forest">Order Confirmed</h1>
+            <p className="text-xs sm:text-sm text-stone-600">
+              Your botanical order is being fulfilled by verified local nurseries in <strong>{currentCity}</strong>.
+            </p>
+            <p className="font-mono text-xs font-bold text-phyto-forest bg-stone-100 py-1 px-3 rounded-full inline-block mt-1">
+              Order Reference: #{orderPlaced.id}
+            </p>
+          </div>
+
+          {/* Green Points Award Banner */}
+          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4 text-xs font-semibold text-emerald-900 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-left">
+              <Award className="size-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="font-bold">PHYTO GREEN INDEX Updated</p>
+                <p className="text-[11px] text-emerald-700">Points credited to your account</p>
+              </div>
+            </div>
+            <span className="text-sm font-black text-emerald-800 bg-white px-3 py-1 rounded-full shadow-xs">
+              +{orderPlaced.greenPointsAwarded} Points
+            </span>
+          </div>
+
+          <div className="rounded-2xl bg-stone-50 p-4 text-sm font-semibold text-phyto-forest flex justify-between items-center border border-stone-100">
             <span>Total Paid via {payment.toUpperCase()}:</span>
             <span className="text-lg font-bold text-phyto-forest">{formatInr(orderPlaced.total_amount || total)}</span>
           </div>
 
-          <div className="mt-4 text-[11px] text-stone-500 flex items-center justify-center gap-1.5">
+          <div className="text-[11px] text-stone-500 flex items-center justify-center gap-1.5">
             <ShieldCheck className="size-4 text-phyto-leaf" />
-            <span>Packed with moisture-lock wrapping &amp; 14-day alive guarantee</span>
+            <span>Packed with moisture-lock wrapping and 14-day live plant arrival guarantee</span>
           </div>
 
-          <div className="mt-8 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => nav('/shop')}
+          <div className="flex flex-col gap-3 pt-2">
+            <Link
+              to="/green-index"
               className="w-full rounded-full bg-phyto-forest py-3.5 text-xs font-bold text-white hover:bg-phyto-leaf transition"
             >
-              Continue Botanical Shopping
-            </button>
-            <button
-              type="button"
-              onClick={() => nav('/')}
-              className="w-full rounded-full border border-phyto-forest/20 py-3.5 text-xs font-bold text-phyto-forest hover:bg-phyto-sage/40 transition"
+              View Updated PHYTO GREEN INDEX
+            </Link>
+            <Link
+              to="/shop"
+              className="w-full rounded-full border border-phyto-forest/20 py-3 text-xs font-bold text-phyto-forest hover:bg-phyto-sage/40 transition"
             >
-              Return to Home Page
-            </button>
+              Continue Botanical Shopping
+            </Link>
           </div>
         </div>
       </div>
@@ -119,111 +187,105 @@ export function CheckoutPage() {
   const steps = [
     { n: 1 as const, label: 'Shipping', icon: Truck },
     { n: 2 as const, label: 'Payment', icon: CreditCard },
-    { n: 3 as const, label: 'Review', icon: ClipboardCheck },
+    { n: 3 as const, label: 'Confirm', icon: ClipboardCheck },
   ]
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <div>
+    <div className="space-y-8 max-w-5xl mx-auto pb-16">
+      <header className="border-b border-phyto-forest/10 pb-4">
         <h1 className="font-display text-3xl font-bold text-phyto-forest">Secure Checkout</h1>
-        <p className="mt-1 text-xs text-stone-600">Complete your botanical order in three quick steps.</p>
-      </div>
+        <p className="text-xs text-stone-500">Express dispatch from {currentCity} Regional Nursery Hub</p>
+      </header>
 
-      {/* Stepper */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4">
-        {steps.map((s) => {
+      {/* Progress Steps */}
+      <div className="flex items-center justify-center gap-2 sm:gap-6 text-xs font-bold">
+        {steps.map((s, idx) => {
           const Icon = s.icon
-          const done = step > s.n
-          const active = step === s.n
+          const isActive = step === s.n
+          const isDone = step > s.n
           return (
-            <div key={s.n} className="flex flex-1 items-center gap-3 sm:max-w-[200px]">
+            <div key={s.n} className="flex items-center gap-2">
               <div
                 className={clsx(
-                  'flex w-full items-center gap-3 rounded-2xl border px-4 py-3 transition',
-                  active ? 'border-phyto-leaf bg-phyto-sage/50 shadow-sm' : 'border-phyto-forest/10 bg-white',
-                  done ? 'opacity-90' : ''
+                  'flex size-8 items-center justify-center rounded-full text-xs transition',
+                  isDone
+                    ? 'bg-emerald-600 text-white'
+                    : isActive
+                    ? 'bg-phyto-forest text-white ring-4 ring-phyto-mint/30'
+                    : 'bg-stone-100 text-stone-400'
                 )}
               >
-                <span
-                  className={clsx(
-                    'grid size-8 shrink-0 place-items-center rounded-full text-xs font-bold',
-                    step >= s.n ? 'bg-phyto-forest text-white' : 'bg-stone-200 text-stone-500'
-                  )}
-                >
-                  {s.n}
-                </span>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-phyto-forest">
-                    <Icon className="size-3.5 text-phyto-leaf" />
-                    {s.label}
-                  </div>
-                </div>
+                {isDone ? <Check className="size-4" /> : <Icon className="size-4" />}
               </div>
+              <span className={clsx(isActive ? 'text-phyto-forest' : 'text-stone-400', 'hidden sm:inline')}>
+                {s.label}
+              </span>
+              {idx < steps.length - 1 && <div className="h-0.5 w-6 sm:w-12 bg-stone-200" />}
             </div>
           )
         })}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-3xl border border-phyto-forest/10 bg-white p-6 shadow-card md:p-8">
+      <div className="grid gap-8 md:grid-cols-12">
+        {/* Main Step Content */}
+        <div className="md:col-span-7 rounded-3xl border border-phyto-forest/10 bg-white p-6 shadow-card md:p-8">
           {step === 1 && (
-            <div>
-              <div className="flex items-center gap-2 text-phyto-forest border-b border-stone-100 pb-3">
-                <Truck className="size-5 text-phyto-leaf" />
-                <h2 className="font-display text-xl font-bold">Delivery Address</h2>
-              </div>
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Field label="Full name">
+            <div className="space-y-4">
+              <h2 className="font-display text-lg font-bold text-phyto-forest">1. Delivery Address ({currentCity})</h2>
+              <div className="grid gap-3">
+                <Field label="Full Name">
                   <input
+                    type="text"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full rounded-2xl border border-phyto-forest/15 px-4 py-2.5 text-xs font-medium focus:border-phyto-leaf focus:outline-none"
-                    placeholder="Enter your full name"
-                    required
+                    placeholder="e.g. Rahul Patil"
+                    className="w-full rounded-xl border border-stone-200 p-2.5 text-xs focus:border-phyto-leaf focus:outline-none"
                   />
                 </Field>
-                <Field label="Phone number">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Phone Number">
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      placeholder="+91 98220 00000"
+                      className="w-full rounded-xl border border-stone-200 p-2.5 text-xs focus:border-phyto-leaf focus:outline-none"
+                    />
+                  </Field>
+                  <Field label="City">
+                    <input
+                      type="text"
+                      value={form.city}
+                      onChange={(e) => setForm({ ...form, city: e.target.value })}
+                      className="w-full rounded-xl border border-stone-200 p-2.5 text-xs focus:border-phyto-leaf focus:outline-none"
+                    />
+                  </Field>
+                </div>
+                <Field label="Street Address / Area">
                   <input
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="w-full rounded-2xl border border-phyto-forest/15 px-4 py-2.5 text-xs font-medium focus:border-phyto-leaf focus:outline-none"
-                    placeholder="+91 98765 43210"
-                    required
-                  />
-                </Field>
-                <Field label="Street address &amp; Landmark" className="md:col-span-2">
-                  <input
+                    type="text"
                     value={form.street}
                     onChange={(e) => setForm({ ...form, street: e.target.value })}
-                    className="w-full rounded-2xl border border-phyto-forest/15 px-4 py-2.5 text-xs font-medium focus:border-phyto-leaf focus:outline-none"
-                    placeholder="Apartment, building, street, landmark"
-                    required
+                    placeholder="Area, Street, Landmark"
+                    className="w-full rounded-xl border border-stone-200 p-2.5 text-xs focus:border-phyto-leaf focus:outline-none"
                   />
                 </Field>
-                <Field label="City">
+                <Field label="PIN Code">
                   <input
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    className="w-full rounded-2xl border border-phyto-forest/15 px-4 py-2.5 text-xs font-medium focus:border-phyto-leaf focus:outline-none"
-                    placeholder="Bengaluru"
-                    required
-                  />
-                </Field>
-                <Field label="PIN code">
-                  <input
+                    type="text"
                     value={form.zip}
                     onChange={(e) => setForm({ ...form, zip: e.target.value })}
-                    className="w-full rounded-2xl border border-phyto-forest/15 px-4 py-2.5 text-xs font-medium focus:border-phyto-leaf focus:outline-none"
-                    placeholder="560034"
-                    required
+                    placeholder="416003"
+                    className="w-full rounded-xl border border-stone-200 p-2.5 text-xs focus:border-phyto-leaf focus:outline-none"
                   />
                 </Field>
               </div>
-              <div className="mt-8 flex justify-end">
+
+              <div className="pt-4 flex justify-end">
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="rounded-full bg-phyto-forest px-8 py-3 text-xs font-bold text-white hover:bg-phyto-leaf transition"
+                  className="rounded-full bg-phyto-forest px-6 py-2.5 text-xs font-bold text-white hover:bg-phyto-leaf transition"
                 >
                   Continue to Payment
                 </button>
@@ -232,43 +294,41 @@ export function CheckoutPage() {
           )}
 
           {step === 2 && (
-            <div>
-              <div className="flex items-center gap-2 text-phyto-forest border-b border-stone-100 pb-3">
-                <CreditCard className="size-5 text-phyto-leaf" />
-                <h2 className="font-display text-xl font-bold">Choose Payment Method</h2>
-              </div>
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="space-y-6">
+              <h2 className="font-display text-lg font-bold text-phyto-forest">2. Payment Method</h2>
+              <div className="grid gap-3">
                 <PayCard
-                  title="⚡ UPI / QR"
-                  subtitle="GPay, PhonePe, Paytm"
+                  title="UPI / Instant QR Payment"
+                  subtitle="GPay, PhonePe, Paytm, BHIM"
                   active={payment === 'upi'}
                   onClick={() => setPayment('upi')}
                 />
                 <PayCard
-                  title="💳 Credit / Debit Card"
-                  subtitle="Visa, Mastercard, RuPay"
+                  title="Credit / Debit Card / Net Banking"
+                  subtitle="Visa, Mastercard, RuPay, Net Banking"
                   active={payment === 'card'}
                   onClick={() => setPayment('card')}
                 />
                 <PayCard
-                  title="💵 Cash on Delivery"
-                  subtitle="Pay upon doorstep arrival"
+                  title="Cash on Delivery"
+                  subtitle="Pay upon delivery at doorstep"
                   active={payment === 'cod'}
                   onClick={() => setPayment('cod')}
                 />
               </div>
-              <div className="mt-8 flex justify-between">
+
+              <div className="flex justify-between pt-4">
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="rounded-full border border-phyto-forest/20 px-6 py-2.5 text-xs font-bold text-phyto-forest hover:bg-phyto-sage/40"
+                  className="rounded-full border border-stone-200 px-5 py-2 text-xs font-bold text-stone-600 hover:bg-stone-100"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="rounded-full bg-phyto-forest px-8 py-3 text-xs font-bold text-white hover:bg-phyto-leaf transition"
+                  className="rounded-full bg-phyto-forest px-6 py-2.5 text-xs font-bold text-white hover:bg-phyto-leaf transition"
                 >
                   Review Order
                 </button>
@@ -278,29 +338,21 @@ export function CheckoutPage() {
 
           {step === 3 && (
             <div className="space-y-6">
-              <div className="flex items-center gap-2 text-phyto-forest border-b border-stone-100 pb-3">
-                <ClipboardCheck className="size-5 text-phyto-leaf" />
-                <h2 className="font-display text-xl font-bold">Review &amp; Confirm</h2>
-              </div>
-              <div className="rounded-2xl border border-phyto-forest/10 bg-stone-50/80 p-4 text-xs space-y-2">
-                <div className="font-bold text-phyto-forest">Shipping Destination</div>
-                <p className="text-stone-600">
-                  {form.name || 'Valued Customer'} · {form.phone}
-                </p>
-                <p className="text-stone-600">
-                  {form.street}, {form.city} - {form.zip}
-                </p>
-                <div className="mt-2 font-bold text-phyto-forest">Payment Selected</div>
-                <p className="text-stone-600 uppercase font-semibold">{payment === 'cod' ? 'Cash on Delivery' : payment}</p>
+              <h2 className="font-display text-lg font-bold text-phyto-forest">3. Review and Confirm</h2>
+              <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4 text-xs space-y-2">
+                <p className="font-bold text-phyto-forest">Shipping Destination:</p>
+                <p className="text-stone-700">{form.name} ({form.phone})</p>
+                <p className="text-stone-600">{form.street}, {form.city} - {form.zip}</p>
+                <p className="font-bold text-phyto-forest pt-2">Payment Selected: <span className="uppercase font-normal">{payment}</span></p>
               </div>
 
-              {orderError && <p className="text-xs font-semibold text-red-600">{orderError}</p>}
+              {orderError && <p className="text-xs font-bold text-red-600">{orderError}</p>}
 
-              <div className="flex justify-between">
+              <div className="flex justify-between pt-4">
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="rounded-full border border-phyto-forest/20 px-6 py-2.5 text-xs font-bold text-phyto-forest hover:bg-phyto-sage/40"
+                  className="rounded-full border border-stone-200 px-5 py-2 text-xs font-bold text-stone-600 hover:bg-stone-100"
                 >
                   Back
                 </button>
@@ -317,33 +369,72 @@ export function CheckoutPage() {
           )}
         </div>
 
-        <aside className="h-fit space-y-4 rounded-3xl border border-phyto-forest/10 bg-stone-50/90 p-6 shadow-card">
-          <h2 className="font-display text-base font-bold text-phyto-forest">Order Breakdown</h2>
-          <div className="max-h-64 space-y-3 overflow-y-auto">
-            {items.map((it) => (
-              <div key={it.product.id} className="flex gap-3 border-b border-phyto-forest/10 pb-3">
-                {it.product.imageUrl && (
-                  <img src={it.product.imageUrl} alt="" className="size-12 shrink-0 rounded-lg object-cover" />
+        {/* Order Summary & Voucher Promo */}
+        <aside className="md:col-span-5 space-y-4 rounded-3xl border border-phyto-forest/10 bg-stone-50/90 p-6 shadow-card">
+          <h2 className="font-display text-base font-bold text-phyto-forest">Order Summary</h2>
+
+          {/* Promo Code Input */}
+          <div className="space-y-1.5 border-b border-stone-200 pb-4">
+            <label className="block text-[11px] font-bold text-stone-600">PHYTO GREEN INDEX Voucher Code</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                placeholder="e.g. GREENCHAMP25"
+                className="w-full rounded-xl border border-stone-200 bg-white p-2 text-xs uppercase font-mono focus:border-phyto-leaf focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={applyCoupon}
+                className="rounded-xl bg-phyto-forest px-3 py-2 text-xs font-bold text-white hover:bg-phyto-leaf transition"
+              >
+                Apply
+              </button>
+            </div>
+            {couponMessage && (
+              <p
+                className={clsx(
+                  'text-[11px] font-bold',
+                  discountPercent > 0 ? 'text-emerald-700' : 'text-red-600'
                 )}
-                <div className="min-w-0 flex-1 text-xs">
-                  <div className="font-bold text-phyto-forest truncate">{it.product.name}</div>
-                  <div className="text-stone-500">Qty: {it.quantity} {it.includeKit ? '· Kit +₹250' : ''}</div>
-                  <div className="font-bold text-phyto-forest">{formatInr(it.product.price * it.quantity)}</div>
+              >
+                {couponMessage}
+              </p>
+            )}
+          </div>
+
+          <div className="max-h-56 space-y-2.5 overflow-y-auto">
+            {items.map((it) => (
+              <div key={it.product.id} className="flex gap-2.5 border-b border-stone-100 pb-2 text-xs">
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-phyto-forest truncate">{it.product.name}</p>
+                  <p className="text-stone-400 text-[11px]">Qty: {it.quantity}</p>
                 </div>
+                <span className="font-bold text-phyto-forest">
+                  {formatInr(it.product.price * it.quantity)}
+                </span>
               </div>
             ))}
           </div>
-          <div className="space-y-2 border-t border-phyto-forest/10 pt-4 text-xs">
+
+          <div className="space-y-1.5 border-t border-stone-200 pt-3 text-xs">
             <div className="flex justify-between text-stone-600">
               <span>Subtotal</span>
               <span className="font-bold text-phyto-forest">{formatInr(subtotal)}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-700 font-semibold">
+                <span>Voucher Discount ({discountPercent}%)</span>
+                <span>-{formatInr(discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-stone-600">
-              <span>Hyperlocal shipping</span>
+              <span>Hyperlocal Delivery</span>
               <span className="font-bold text-phyto-forest">{shipping === 0 ? 'FREE' : formatInr(shipping)}</span>
             </div>
             <div className="flex justify-between text-stone-600">
-              <span>GST &amp; Plant Care Packing</span>
+              <span>Care Packing &amp; GST</span>
               <span className="font-bold text-phyto-forest">{formatInr(tax)}</span>
             </div>
             <div className="flex justify-between text-sm font-bold text-phyto-forest border-t border-stone-200 pt-2">
@@ -351,27 +442,23 @@ export function CheckoutPage() {
               <span className="text-phyto-leaf">{formatInr(total)}</span>
             </div>
           </div>
-          <p className="flex items-center justify-center gap-1.5 text-[11px] text-stone-500 pt-2">
-            <Lock className="size-3 text-phyto-leaf" />
-            <span>256-bit SSL Encrypted &amp; Verified</span>
-          </p>
-          {disabled ? (
-            <Link to="/shop" className="block text-center text-xs font-bold text-phyto-leaf underline">
-              Add plants to continue
-            </Link>
-          ) : null}
+
+          {/* Green Points calculation badge */}
+          <div className="rounded-xl bg-emerald-100/60 p-2.5 text-center text-xs font-bold text-emerald-900">
+            You will earn +{totalGreenPoints} Green Points with this order.
+          </div>
         </aside>
       </div>
     </div>
   )
 }
 
-function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className={className}>
-      <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-stone-600">{label}</span>
+    <div>
+      <label className="block text-[11px] font-bold text-stone-700 mb-1">{label}</label>
       {children}
-    </label>
+    </div>
   )
 }
 
@@ -381,13 +468,12 @@ function PayCard({ title, subtitle, active, onClick }: { title: string; subtitle
       type="button"
       onClick={onClick}
       className={clsx(
-        'rounded-2xl border-2 p-4 text-left transition',
-        active ? 'border-phyto-leaf bg-phyto-sage/40 ring-2 ring-phyto-mint/50' : 'border-stone-200 bg-white hover:border-stone-300'
+        'rounded-2xl border-2 p-3.5 text-left transition',
+        active ? 'border-phyto-leaf bg-emerald-50/50' : 'border-stone-200 bg-white hover:border-stone-300'
       )}
     >
-      <div className="text-xs font-bold text-phyto-forest">{title}</div>
-      <div className="mt-1 text-[11px] text-stone-500">{subtitle}</div>
-      {active ? <div className="mt-2 text-[10px] font-bold text-phyto-leaf">✓ Selected</div> : null}
+      <p className="text-xs font-bold text-phyto-forest">{title}</p>
+      <p className="text-[11px] text-stone-500">{subtitle}</p>
     </button>
   )
 }

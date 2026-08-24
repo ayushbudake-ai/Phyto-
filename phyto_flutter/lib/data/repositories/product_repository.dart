@@ -18,6 +18,7 @@ class ProductRepository {
       stock: 45,
       type: 'plants',
       category: 'Indoor Plants',
+      mainCategory: 'Plants',
       sunlight: 'partial',
       lightRequirement: 'Medium',
       waterRequirement: 'Medium',
@@ -30,6 +31,9 @@ class ProductRepository {
       rating: 4.9,
       imageUrl: 'https://images.unsplash.com/photo-1614594975525-e45190c55d0b?auto=format&fit=crop&w=800&q=80',
       popularityScore: 99.0,
+      nurseryCity: 'Pune',
+      nurseryName: 'Green Leaf Nursery, Pune',
+      greenPointsAwarded: 100,
       tags: ['air-purifying', 'low-maintenance', 'beginner-friendly'],
     ),
     ProductModel(
@@ -41,6 +45,7 @@ class ProductRepository {
       stock: 60,
       type: 'plants',
       category: 'Air-Purifying Plants',
+      mainCategory: 'Plants',
       sunlight: 'shade',
       lightRequirement: 'Low',
       waterRequirement: 'Low',
@@ -53,86 +58,149 @@ class ProductRepository {
       rating: 4.85,
       imageUrl: 'https://images.unsplash.com/photo-1593482892290-f54927ae1bf6?auto=format&fit=crop&w=800&q=80',
       popularityScore: 98.0,
+      nurseryCity: 'Pune',
+      nurseryName: 'Sahyadri Flora, Kothrud',
+      greenPointsAwarded: 100,
       tags: ['air-purifying', 'low-maintenance', 'beginner-friendly'],
     ),
     ProductModel(
       id: 3,
-      name: 'Spider Plant',
-      scientificName: 'Chlorophytum comosum',
-      description: 'Playful cascading foliage with baby plantlets. 100% pet-friendly and NASA-certified air purifier.',
-      price: 279.0,
-      stock: 50,
-      type: 'plants',
-      category: 'Air-Purifying Plants',
-      sunlight: 'partial',
-      lightRequirement: 'Medium',
+      name: 'Kashmiri Red Fragrant Rose',
+      scientificName: 'Rosa damascena',
+      description: 'Deep crimson heritage blooms with classic damask fragrance.',
+      price: 349.0,
+      stock: 40,
+      type: 'flowers',
+      category: 'Flowering Plants',
+      mainCategory: 'Flowers',
+      sunlight: 'full-sun',
+      lightRequirement: 'Bright',
       waterRequirement: 'Medium',
-      maintenance: 'Easy',
-      environment: 'indoor',
-      suitableSpace: ['Living room', 'Bedroom', 'Balcony'],
+      maintenance: 'Moderate',
+      environment: 'outdoor',
+      suitableSpace: ['Balcony', 'Terrace', 'Garden'],
       isPetFriendly: true,
       beginnerFriendly: true,
-      benefits: 'Removes 95% of airborne toxins; safe for cats & dogs',
-      rating: 4.88,
-      imageUrl: 'https://images.unsplash.com/photo-1572688484438-313a6e50c333?auto=format&fit=crop&w=800&q=80',
-      popularityScore: 97.0,
-      tags: ['pet-friendly', 'air-purifying', 'beginner-friendly'],
+      benefits: 'Intense damask scent and organic rose water',
+      rating: 4.9,
+      imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+      popularityScore: 98.0,
+      nurseryCity: 'Pune',
+      nurseryName: 'Green Leaf Nursery, Pune',
+      greenPointsAwarded: 100,
+      tags: ['flowering', 'gifting', 'flowers'],
+    ),
+    ProductModel(
+      id: 4,
+      name: 'Heirloom San Marzano Tomato Seeds',
+      scientificName: 'Solanum lycopersicum',
+      description: 'Prized Italian plum tomato seeds with rich sweet flavor for homemade sauce.',
+      price: 99.0,
+      stock: 120,
+      type: 'seeds',
+      category: 'Seeds',
+      mainCategory: 'Seeds',
+      sunlight: 'full-sun',
+      lightRequirement: 'Bright',
+      waterRequirement: 'Medium',
+      maintenance: 'Easy',
+      environment: 'outdoor',
+      suitableSpace: ['Balcony', 'Terrace', 'Garden'],
+      isPetFriendly: false,
+      beginnerFriendly: true,
+      packSize: '50 seeds / pack',
+      rating: 4.9,
+      imageUrl: 'https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=800&q=80',
+      popularityScore: 98.0,
+      nurseryCity: 'Pune',
+      nurseryName: 'Green Leaf Nursery, Pune',
+      greenPointsAwarded: 40,
+      tags: ['seeds', 'beginner-friendly', 'fast-growing'],
+    ),
+    ProductModel(
+      id: 5,
+      name: '100% Organic Vermicompost (5kg)',
+      scientificName: 'Eisenia fetida humus',
+      description: 'Aged organic earthworm castings for microbial soil revitalization.',
+      price: 199.0,
+      stock: 80,
+      type: 'fertilizers',
+      category: 'Fertilizers',
+      mainCategory: 'Fertilizers',
+      sunlight: 'partial',
+      lightRequirement: 'Medium',
+      waterRequirement: 'Low',
+      maintenance: 'Easy',
+      environment: 'both',
+      suitableSpace: ['Balcony', 'Terrace', 'Living room'],
+      isPetFriendly: true,
+      beginnerFriendly: true,
+      packSize: '5 kg bag',
+      rating: 4.96,
+      imageUrl: 'https://images.unsplash.com/photo-1585336261026-0a0684f50682?auto=format&fit=crop&w=800&q=80',
+      popularityScore: 99.0,
+      nurseryCity: 'Pune',
+      nurseryName: 'Green Leaf Nursery, Pune',
+      greenPointsAwarded: 60,
+      tags: ['fertilizer', 'beginner-friendly'],
+    ),
+    ProductModel(
+      id: 6,
+      name: 'Matte Nordic White Ceramic Planter',
+      scientificName: 'High-fired ceramic',
+      description: 'Minimalist 8-inch ceramic pot with drainage hole and matching saucer.',
+      price: 349.0,
+      stock: 50,
+      type: 'pots',
+      category: 'Pots',
+      mainCategory: 'Pots',
+      sunlight: 'partial',
+      lightRequirement: 'Medium',
+      waterRequirement: 'Low',
+      maintenance: 'Easy',
+      environment: 'both',
+      suitableSpace: ['Living room', 'Desk', 'Office'],
+      isPetFriendly: true,
+      beginnerFriendly: true,
+      dimensions: '8 inch x 7.5 inch',
+      material: 'Glazed Ceramic',
+      rating: 4.96,
+      imageUrl: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=800&q=80',
+      popularityScore: 99.0,
+      nurseryCity: 'Pune',
+      nurseryName: 'Green Leaf Nursery, Pune',
+      greenPointsAwarded: 60,
+      tags: ['pots', 'gifting'],
     ),
   ];
 
-  Future<List<ProductModel>> fetchProducts({
-    String? categoryId,
-    String? type,
-    String? sunlight,
-    String? environment,
-    String? tag,
-    double? priceMax,
-    String? query,
-    int skip = 0,
-    int limit = 50,
-  }) async {
+  Future<List<ProductModel>> getProducts({String? category, String? query}) async {
     try {
       final response = await _dio.get(
         '$baseUrl/products',
         queryParameters: {
-          if (categoryId != null) 'category_id': categoryId,
-          if (type != null) 'type': type,
-          if (sunlight != null) 'sunlight': sunlight,
-          if (environment != null) 'environment': environment,
-          if (tag != null) 'tag': tag,
-          if (priceMax != null) 'price_max': priceMax,
-          if (query != null) 'q': query,
-          'skip': skip,
-          'limit': limit,
+          if (category != null && category != 'All') 'category': category,
+          if (query != null && query.isNotEmpty) 'q': query,
         },
       );
-
       if (response.statusCode == 200) {
-        final data = response.data as Map<String, dynamic>;
-        final items = data['items'] as List<dynamic>? ?? [];
-        if (items.isNotEmpty) {
-          return items
-              .map((e) => ProductModel.fromJson(e as Map<String, dynamic>))
-              .toList();
-        }
+        final List<dynamic> list = response.data['products'] ?? response.data;
+        return list.map((json) => ProductModel.fromJson(json as Map<String, dynamic>)).toList();
       }
-      return fallbackProducts;
-    } catch (e) {
-      return fallbackProducts;
+    } catch (_) {
+      // Fallback
     }
-  }
 
-  Future<ProductModel?> fetchProductById(int id) async {
-    try {
-      final response = await _dio.get('$baseUrl/products/$id');
-      if (response.statusCode == 200) {
-        return ProductModel.fromJson(response.data as Map<String, dynamic>);
+    return fallbackProducts.where((p) {
+      if (category != null && category != 'All' && p.category != category && p.mainCategory != category) {
+        return false;
       }
-    } catch (_) {}
-
-    return fallbackProducts.firstWhere(
-      (p) => p.id == id,
-      orElse: () => fallbackProducts.first,
-    );
+      if (query != null && query.isNotEmpty) {
+        final q = query.toLowerCase();
+        return p.name.toLowerCase().contains(q) ||
+            (p.scientificName?.toLowerCase().contains(q) ?? false);
+      }
+      return true;
+    }).toList();
   }
 }

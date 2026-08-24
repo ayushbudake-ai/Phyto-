@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for authentication & role verification
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role != null ? request.auth.token.role : 'customer';
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (request.auth.token.role == 'admin' || request.auth.token.admin == true);
+    }
+
+    function isNursery() {
+      return isAuthenticated() && (getUserRole() == 'nursery' || isAdmin());
+    }
+
+    function isGardener() {
+      return isAuthenticated() && (getUserRole() == 'gardener' || isAdmin());
+    }
+
+    function isDelivery() {
+      return isAuthenticated() && (getUserRole() == 'delivery' || isAdmin());
+    }
+
+    // ── 1. Users / Customer Profiles ──────────────────────────────
+    match /users/{userId} {
+      // Customers can read and update only their own profile
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      
+      // Prevent direct client tampering of green points, vouchers, or admin claims
+      allow update: if (isOwner(userId) && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['greenPoints', 'rewardState', 'isChampion', 'role'])) || isAdmin();
+      allow delete: if isAdmin();
+
+      // PHYTO GREEN INDEX Activity Ledger (Subcollection)
+      match /green_activities/{activityId} {
+        allow read: if isOwner(userId) || isAdmin();
+        // Point addition must come from validated backend/cloud functions or verified orders
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
+      // Rewards Subcollection
+      match /rewards/{rewardId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    // ── 2. Nurseries & Inventory ──────────────────────────────────
+    match /nurseries/{nurseryId} {
+      // Public read for location discovery & nearby matching
+      allow read: if true;
+      // Write restricted to verified nursery owner or platform admin
+      allow create, update: if (isAuthenticated() && (request.auth.uid == resource.data.ownerId || isNursery())) || isAdmin();
+      allow delete: if isAdmin();
+
+      // Nursery inventory subcollection
+      match /inventory/{itemId} {
+        allow read: if true;
+        allow write: if (isAuthenticated() && request.auth.uid == nurseryId) || isNursery() || isAdmin();
+      }
+    }
+
+    // ── 3. Products Catalog ───────────────────────────────────────
+    match /products/{productId} {
+      // Publicly readable by all users (plants, seeds, flowers, fertilizers, pots, kits)
+      allow read: if true;
+      // Only authenticated nurseries or admins can publish/update catalog items
+      allow create, update: if isNursery() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── 4. Orders & Fulfillment ───────────────────────────────────
+    match /orders/{orderId} {
+      // Read allowed for: Customer who ordered, Nursery fulfilling, Delivery partner assigned, or Admin
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||
+        request.auth.uid == resource.data.nurseryId ||
+        request.auth.uid == resource.data.deliveryPartnerId ||
+        isAdmin()
+      );
+      
+      // Customers can create their own order
+      allow create: if isAuthenticated() && request.resource.data.customerId == request.auth.uid;
+      
+      // Updates allowed for status progression (Nursery packs -> Delivery partner delivers)
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||
+        request.auth.uid == resource.data.nurseryId ||
+        request.auth.uid == resource.data.deliveryPartnerId ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ── 5. Gardener Services & Appointments ───────────────────────
+    match /services/{serviceId} {
+      // Public read for service discovery
+      allow read: if true;
+      allow write: if isGardener() || isAdmin();
+    }
+
+    match /service_bookings/{bookingId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||
+        request.auth.uid == resource.data.gardenerId ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.resource.data.customerId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||
+        request.auth.uid == resource.data.gardenerId ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ── 6. Delivery Routes & Logistics ────────────────────────────
+    match /deliveries/{deliveryId} {
+      allow read: if isDelivery() || isAdmin() || (
+        isAuthenticated() && (
+          request.auth.uid == resource.data.customerId ||
+          request.auth.uid == resource.data.nurseryId
+        )
+      );
+      allow update: if isDelivery() || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // Default deny for all unspecified collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
